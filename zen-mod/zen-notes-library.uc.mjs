@@ -185,6 +185,21 @@ class ZenNotesLibrarySection extends ZenLibrarySearchSection {
     clearInterval(this.#timer);
   }
 
+  // Zen picks a text colour per space from how bright its background is (white on
+  // dark spaces, dark on light ones). Use the same colour for the note icons.
+  async #applyIconColor() {
+    try {
+      const ws = await (window.gZenWorkspaces?.getActiveWorkspace?.() ??
+        window.gZenWorkspaces?.getActiveWorkspaceFromCache?.());
+      const theme = ws && window.gZenThemePicker?.getGradientForWorkspace(ws);
+      const color = theme?.toolbarColor && `rgba(${theme.toolbarColor.join(",")})`;
+      if (color) this.style.setProperty("--zen-notes-icon-color", color);
+      else this.style.removeProperty("--zen-notes-icon-color");
+    } catch (e) {
+      this.style.removeProperty("--zen-notes-icon-color");
+    }
+  }
+
   onSearchChanged() {
     this.requestUpdate();
   }
@@ -196,6 +211,7 @@ class ZenNotesLibrarySection extends ZenLibrarySearchSection {
   }
 
   async refresh() {
+    this.#applyIconColor();
     if (this.#loading) return this.#loading;
     this.#loading = listNotes()
       .then(({ notes }) => {
@@ -293,13 +309,13 @@ const STYLE = `
 }
 .zen-notes-row-icon {
   flex: none;
-  width: 16px;
-  height: 16px;
-  background: url("__SPRITE__") 0 0 / 576px 16px no-repeat;
-  -moz-context-properties: fill, stroke;
-  stroke: currentColor;
-  fill: transparent;
-  opacity: 0.7;
+  width: 20px;
+  height: 20px;
+  margin-inline: 0 2px;
+  /* Light or dark to suit the space's background, not the system theme. */
+  background-color: var(--zen-notes-icon-color, currentColor);
+  mask: url("__NOTE_ICON__") center / contain no-repeat;
+  opacity: 0.85;
 }
 .zen-notes-row .zen-library-row-title[placeholder] { opacity: 0.5; }
 .zen-notes-row .zen-library-row-subtitle {
@@ -326,6 +342,9 @@ const STYLE = `
 // loaded through chrome:// because Firefox only applies context-fill/stroke
 // (the accent colours) to chrome:// and resource:// images.
 const ICON_DIR = PathUtils.join(Services.dirsvc.get("UChrm", Ci.nsIFile).path, "resources", "zen-notes");
+// Single note icon for the rows, used as a mask so it takes any colour.
+const NOTE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-2.256 0 20.9372 20.9372'%3E%3Cpath d='M0 17.8696C0 19.916 1.00683 20.9332 3.02218 20.9332L13.3924 20.9332C15.4099 20.9332 16.4249 19.916 16.4249 17.8696L16.4249 3.06359C16.4249 1.02753 15.4099 0 13.3924 0L3.02218 0C1.00683 0 0 1.02753 0 3.06359ZM1.57069 17.8447L1.57069 3.08851C1.57069 2.11324 2.09254 1.57069 3.10921 1.57069L13.3157 1.57069C14.322 1.57069 14.846 2.11324 14.846 3.08851L14.846 17.8447C14.846 18.8199 14.322 19.3625 13.3157 19.3625L3.10921 19.3625C2.09254 19.3625 1.57069 18.8199 1.57069 17.8447Z'/%3E%3Cpath d='M4.5165 5.65306L11.9188 5.65306C12.265 5.65306 12.5199 5.38565 12.5199 5.04156C12.5199 4.70994 12.265 4.45288 11.9188 4.45288L4.5165 4.45288C4.16206 4.45288 3.905 4.70994 3.905 5.04156C3.905 5.38565 4.16206 5.65306 4.5165 5.65306Z'/%3E%3Cpath d='M4.5165 9.06545L11.9188 9.06545C12.265 9.06545 12.5199 8.78769 12.5199 8.44571C12.5199 8.12233 12.265 7.85492 11.9188 7.85492L4.5165 7.85492C4.16206 7.85492 3.905 8.12233 3.905 8.44571C3.905 8.78769 4.16206 9.06545 4.5165 9.06545Z'/%3E%3Cpath d='M4.5165 12.4675L8.02193 12.4675C8.36813 12.4675 8.62519 12.2104 8.62519 11.8788C8.62519 11.5347 8.36813 11.2673 8.02193 11.2673L4.5165 11.2673C4.16206 11.2673 3.905 11.5347 3.905 11.8788C3.905 12.2104 4.16206 12.4675 4.5165 12.4675Z'/%3E%3C/svg%3E";
+
 let sprite = "chrome://userchrome/content/zen-notes/note-plain-sprite.svg";
 // Arc's animated Notes icon (36 frames, like Zen's own Library icons), if installed.
 const spriteReady = IOUtils.exists(PathUtils.join(ICON_DIR, "notes-sprite.svg")).then(
@@ -340,15 +359,21 @@ function setLabel(library) {
 
 function addSection(library) {
   if (!library.zenLibrarySections || library.zenLibrarySections.notes) return;
-  // Notes first in the rail.
-  library.zenLibrarySections = { notes: ZenNotesLibrarySection, ...library.zenLibrarySections };
+  // The rail follows the object's key order: put Notes just above Boosts.
+  const sections = {};
+  for (const [id, Section] of Object.entries(library.zenLibrarySections)) {
+    if (id === "boosts") sections.notes = ZenNotesLibrarySection;
+    sections[id] = Section;
+  }
+  sections.notes ??= ZenNotesLibrarySection;
+  library.zenLibrarySections = sections;
   library.requestUpdate();
   Promise.all([library.updateComplete, spriteReady]).then(() => {
     const root = library.renderRoot;
     if (root && !root.querySelector("style[data-zen-notes]")) {
       const style = document.createElement("style");
       style.dataset.zenNotes = "";
-      style.textContent = STYLE.replaceAll("__SPRITE__", sprite);
+      style.textContent = STYLE.replaceAll("__SPRITE__", sprite).replaceAll("__NOTE_ICON__", NOTE_ICON);
       root.append(style);
     }
     setLabel(library);
