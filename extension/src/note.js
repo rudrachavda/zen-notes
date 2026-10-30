@@ -652,6 +652,58 @@ document.addEventListener("mousemove", (e) => {
 });
 
 gutter.addEventListener("mousedown", (e) => e.preventDefault()); // keep the caret
+// Ticking a checklist item draws its checkmark in from left to right.
+function drawCheck(li) {
+  const span = li.querySelector(":scope > label > span");
+  span?.animate([{ width: "0" }, { width: "0.6em" }], {
+    duration: 350,
+    easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+    pseudoElement: "::after",
+  });
+}
+let checkClick = null;
+editor.view.dom.addEventListener(
+  "click",
+  (e) => {
+    if (e.target.type === "checkbox") checkClick = Date.now();
+  },
+  true
+);
+
+// Ticking or unticking an item does the same to the items nested under it.
+editor.on("transaction", ({ transaction }) => {
+  if (!transaction.docChanged || transaction.getMeta("cascadeChecks")) return;
+  const before = transaction.before;
+  const tr = editor.state.tr;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name !== "taskItem") return;
+    const mapped = transaction.mapping.invert().map(pos);
+    const old = before.nodeAt(mapped);
+    if (!old || old.type.name !== "taskItem" || old.attrs.checked === node.attrs.checked) return;
+    node.descendants((child, offset) => {
+      if (child.type.name === "taskItem" && child.attrs.checked !== node.attrs.checked) {
+        tr.setNodeMarkup(pos + 1 + offset, undefined, { ...child.attrs, checked: node.attrs.checked });
+      }
+    });
+  });
+  if (tr.docChanged) editor.view.dispatch(tr.setMeta("cascadeChecks", true).setMeta("addToHistory", true));
+});
+
+// After a checkbox click, animate every item that just became ticked.
+let checkedBefore = new Set();
+const checkedItems = () =>
+  new Set([...editor.view.dom.querySelectorAll('ul[data-type="taskList"] li[data-checked="true"]')]);
+editor.on("transaction", () => {
+  requestAnimationFrame(() => {
+    const now = checkedItems();
+    if (checkClick && Date.now() - checkClick < 500) {
+      for (const li of now) if (!checkedBefore.has(li)) drawCheck(li);
+    }
+    checkedBefore = now;
+  });
+});
+requestAnimationFrame(() => (checkedBefore = checkedItems()));
+
 // A click in the text moves the picker to the clicked line right away.
 editor.view.dom.addEventListener("mousedown", () => (hoverIndex = null));
 chip.addEventListener("click", (e) => {

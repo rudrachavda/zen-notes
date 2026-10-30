@@ -206,29 +206,38 @@ html, body {
 .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.55em; }
 .ProseMirror ul[data-type="taskList"] li > label { flex: none; display: flex; align-items: center; height: 1.7em; user-select: none; }
 .ProseMirror ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+/* The real checkbox sits invisibly on top; the span next to it draws the circle. */
+.ProseMirror ul[data-type="taskList"] li > label { position: relative; }
 .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
-  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.ProseMirror ul[data-type="taskList"] li > label > span {
   width: 1.05em;
   height: 1.05em;
-  margin: 0;
   border: 1.5px solid var(--muted);
   border-radius: 50%;
   display: grid;
   place-items: center;
-  cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
-.ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked { background: var(--link); border-color: var(--link); }
-.ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > label > span { background: var(--link); border-color: var(--link); }
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > label > span::after {
+  /* Rudra's checkmark, drawn in from left to right when ticked. */
   content: "";
-  width: 0.26em;
-  height: 0.5em;
-  margin-top: -0.12em;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  width: 0.6em;
+  height: 0.6em;
+  background: #fff;
+  justify-self: start;
+  margin-left: 0.2em;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16.8217 17.2244'%3E%3Cpath d='M6.36795 17.2244C6.7864 17.2244 7.11572 17.0422 7.35187 16.6797L16.5731 2.16239C16.7575 1.8785 16.8217 1.65481 16.8217 1.43111C16.8217 0.900714 16.4715 0.540148 15.9307 0.540148C15.5433 0.540148 15.3258 0.670687 15.0917 1.04562L6.32444 15.0114L1.7756 9.05286C1.52909 8.71933 1.29082 8.57844 0.932367 8.57844C0.389508 8.57844 0 8.9576 0 9.49835C0 9.72626 0.097377 9.97488 0.28389 10.2131L5.34665 16.659C5.64913 17.0464 5.94739 17.2244 6.36795 17.2244Z'/%3E%3C/svg%3E") left center / 0.6em 0.6em no-repeat;
 }
-.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted); }
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div > :not(ul) { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted); }
 .link-card.loading { opacity: 0.6; }
 .link-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; }
 .link-card strong { font-weight: 800; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -569,3 +578,16 @@ button svg { display: block; flex: none; }
   border-top: 0;
   border-left: 1.5px solid var(--ink);
 }
+
+/* Quiet gutter: the picker is faint with no background until hovered, and the
+   mover only appears when the pointer is over the gutter. */
+.gutter .chip {
+  background: transparent;
+  opacity: 0.45;
+  transition: opacity 0.15s, background 0.15s;
+}
+.gutter:hover .chip, .gutter .chip:focus-visible { opacity: 1; }
+.gutter .chip:hover { background: var(--tool-active); }
+.gutter .mover { opacity: 0; transition: opacity 0.15s, background 0.15s; }
+.gutter:hover .mover, .gutter .mover:focus-visible { opacity: 0.8; }
+.gutter .mover:hover { opacity: 1; }
