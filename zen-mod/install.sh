@@ -1,6 +1,6 @@
 #!/bin/bash
-# Adds a "Notes" section to Zen's Library and puts your last used tab at the top of
-# the ⌘T bar, and keeps both working after Zen updates.
+# Adds a "Notes" section to Zen's Library, note search and your last used tab to
+# the ⌘T bar, and keeps them working after Zen updates.
 #
 # Zen only runs CSS mods on its own, so this sets up fx-autoconfig, a small,
 # widely used loader for browser scripts (https://github.com/MrOtherGuy/fx-autoconfig),

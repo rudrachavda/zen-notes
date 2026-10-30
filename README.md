@@ -112,6 +112,14 @@ typing and the bar behaves as usual. In `about:config`:
 - `zen.urlbar.last-tab.everywhere` (default `false`): also show it when you
   click into the URL bar, not only after `⌘T`.
 
+### Notes in ⌘T
+
+`zen-notes-urlbar.sys.mjs` (also added by the installer) searches your notes as
+you type in the URL bar: up to three notes whose title or text contain every
+word you typed show right under the top result, title matches first. Pick one
+to open it (or switch to it if it's already open). Turn it off with
+`zen.urlbar.notes.enabled` = `false` in `about:config`.
+
 ## Develop
 
 ```bash
