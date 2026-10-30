@@ -31,13 +31,18 @@ const CURRENT_SPACE_PREF = "zen.urlbar.last-tab.current-space-only";
 
 // --- Finding the tab ------------------------------------------------------------
 
+// gBrowser.tabs only holds the space you're in; Zen keeps the full list itself.
+function allTabs(win) {
+  return win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs;
+}
+
 function lastUsedTab(win) {
   const { gBrowser, gZenWorkspaces } = win;
   const space = Services.prefs.getBoolPref(CURRENT_SPACE_PREF, false)
     ? gZenWorkspaces?.activeWorkspace
     : null;
   let best = null;
-  for (const tab of gBrowser.tabs) {
+  for (const tab of allTabs(win)) {
     if (
       tab == gBrowser.selectedTab ||
       tab.closing ||
@@ -184,7 +189,7 @@ class ZenLastTabProvider extends UrlbarProvider {
     if (!win) {
       return;
     }
-    const tab = win.gBrowser.tabs.find(t => t.linkedPanel == panel);
+    const tab = allTabs(win).find(t => t.linkedPanel == panel);
     if (tab && !tab.closing) {
       // Zen closes its ⌘T bar itself when the selected tab changes. Going
       // through Zen's helper also switches space (and container) if needed.
