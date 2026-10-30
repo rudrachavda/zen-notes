@@ -299,7 +299,7 @@ class ZenNotesLibrarySection extends ZenLibrarySearchSection {
         aria-label="New note"
         @click=${() => newNote()}
       >
-        <img src="chrome://browser/skin/zen-icons/plus.svg" alt="" />
+        <img src="chrome://userchrome/content/zen-notes/new-note.svg" alt="" />
       </button>
     `;
   }
