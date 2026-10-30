@@ -230,12 +230,13 @@ html, body {
 .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > label > span::after {
   /* Rudra's checkmark, drawn in from left to right when ticked. */
   content: "";
-  width: 0.6em;
-  height: 0.6em;
+  width: 0.46em;
+  height: 0.46em;
   background: #fff;
+  /* Left-aligned so the draw-in grows left to right, with a margin that centres it. */
   justify-self: start;
-  margin-left: 0.2em;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16.8217 17.2244'%3E%3Cpath d='M6.36795 17.2244C6.7864 17.2244 7.11572 17.0422 7.35187 16.6797L16.5731 2.16239C16.7575 1.8785 16.8217 1.65481 16.8217 1.43111C16.8217 0.900714 16.4715 0.540148 15.9307 0.540148C15.5433 0.540148 15.3258 0.670687 15.0917 1.04562L6.32444 15.0114L1.7756 9.05286C1.52909 8.71933 1.29082 8.57844 0.932367 8.57844C0.389508 8.57844 0 8.9576 0 9.49835C0 9.72626 0.097377 9.97488 0.28389 10.2131L5.34665 16.659C5.64913 17.0464 5.94739 17.2244 6.36795 17.2244Z'/%3E%3C/svg%3E") left center / 0.6em 0.6em no-repeat;
+  margin-left: calc((1.05em - 3px - 0.46em) / 2);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16.8217 17.2244'%3E%3Cpath d='M6.36795 17.2244C6.7864 17.2244 7.11572 17.0422 7.35187 16.6797L16.5731 2.16239C16.7575 1.8785 16.8217 1.65481 16.8217 1.43111C16.8217 0.900714 16.4715 0.540148 15.9307 0.540148C15.5433 0.540148 15.3258 0.670687 15.0917 1.04562L6.32444 15.0114L1.7756 9.05286C1.52909 8.71933 1.29082 8.57844 0.932367 8.57844C0.389508 8.57844 0 8.9576 0 9.49835C0 9.72626 0.097377 9.97488 0.28389 10.2131L5.34665 16.659C5.64913 17.0464 5.94739 17.2244 6.36795 17.2244Z'/%3E%3C/svg%3E") left center / 0.46em 0.46em no-repeat;
 }
 .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div > :not(ul) { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted); }
 .link-card.loading { opacity: 0.6; }

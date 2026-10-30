@@ -655,7 +655,7 @@ gutter.addEventListener("mousedown", (e) => e.preventDefault()); // keep the car
 // Ticking a checklist item draws its checkmark in from left to right.
 function drawCheck(li) {
   const span = li.querySelector(":scope > label > span");
-  span?.animate([{ width: "0" }, { width: "0.6em" }], {
+  span?.animate([{ width: "0" }, { width: "0.46em" }], {
     duration: 350,
     easing: "cubic-bezier(0.4, 0, 0.2, 1)",
     pseudoElement: "::after",
