@@ -87,7 +87,15 @@ and delete. It's a browser-chrome script loaded by
 The installer copies two small loader files into `Zen.app/Contents/Resources`
 and the script into your profile's `chrome/` folder. If macOS refuses, allow
 Terminal in System Settings → Privacy & Security → App Management and run it
-again. Zen updates replace the app, so run it again after each update.
+again.
+
+Zen updates replace the app and remove the loader. To handle that, the
+installer also adds a background job (a LaunchAgent) and a tiny "Zen Notes
+Repair" app. When Zen.app changes, the job puts the loader back. If Zen was
+open during the update, you get a notification asking you to reopen Zen. Allow
+"Zen Notes Repair" under App Management when macOS asks. The log is at
+`~/Library/Logs/ZenNotes-repair.log`. To remove the job, run
+`./zen-mod/install.sh --uninstall`.
 
 The tab's icon is a plain note unless `zen-mod/notes-sprite.svg` exists. That
 file is Arc's animated Notes icon turned into a 36-frame sprite like Zen's

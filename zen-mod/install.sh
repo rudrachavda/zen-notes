@@ -1,12 +1,30 @@
 #!/bin/bash
-# Adds a "Notes" section to Zen's Library.
+# Adds a "Notes" section to Zen's Library, and keeps it there after Zen updates.
 #
 # Zen only runs CSS mods on its own, so this sets up fx-autoconfig, a small,
 # widely used loader for browser scripts (https://github.com/MrOtherGuy/fx-autoconfig),
 # then adds zen-notes-library.uc.mjs to your Zen profile. Quit Zen before running.
-# Zen updates replace the app, so run this again after an update if Notes disappears.
+#
+# Zen updates replace Zen.app and remove the loader, so this also installs a
+# LaunchAgent that puts it back by itself (see repair.sh).
+#
+#   ./install.sh              install or update
+#   ./install.sh --uninstall  remove the auto-repair (the Library tab stays until Zen updates)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+
+SUPPORT="$HOME/Library/Application Support/ZenNotes"
+PAYLOAD="$SUPPORT/zen-mod"
+APPLET="$SUPPORT/Zen Notes Repair.app"
+LABEL="com.rudrachavda.zennotes.repair"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+
+if [ "${1:-}" = "--uninstall" ]; then
+  launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  rm -rf "$PLIST" "$APPLET" "$PAYLOAD"
+  echo "Removed the Zen Notes auto-repair."
+  exit 0
+fi
 
 APP=""
 for candidate in "/Applications/Zen.app" "/Applications/Zen Browser.app" "$HOME/Applications/Zen.app"; do
@@ -19,44 +37,82 @@ if pgrep -xq zen; then
   exit 1
 fi
 
-# 1. The loader's two program files go inside the app.
-RES="$APP/Contents/Resources"
-if [ -f "$RES/config.js" ] && ! cmp -s "$RES/config.js" "$HERE/fx-autoconfig/program/config.js"; then
-  echo "Zen already has a different config.js (another script loader?). Leaving it alone." >&2
-else
-  if ! cp "$HERE/fx-autoconfig/program/config.js" "$RES/config.js" 2>/dev/null; then
-    echo "macOS blocked changing the Zen app. Allow Terminal under System Settings >" >&2
-    echo "Privacy & Security > App Management, then run this again." >&2
-    exit 1
-  fi
-  mkdir -p "$RES/defaults/pref"
-  cp "$HERE/fx-autoconfig/program/defaults/pref/config-prefs.js" "$RES/defaults/pref/config-prefs.js"
+# 1. Keep a copy of everything outside Downloads, where background jobs can read it.
+mkdir -p "$PAYLOAD"
+rm -rf "$PAYLOAD/fx-autoconfig"
+cp -R "$HERE/fx-autoconfig" "$PAYLOAD/"
+cp "$HERE/zen-notes-library.uc.mjs" "$HERE/repair.sh" "$PAYLOAD/"
+rm -f "$PAYLOAD/"*.svg
+# notes-sprite.svg is Arc's animated Notes icon (not in the repo; see README).
+cp "$HERE/"*.svg "$PAYLOAD/"
+chmod +x "$PAYLOAD/repair.sh"
+
+# 2. Put the loader in Zen.app and the script in your profile.
+set +e
+"$PAYLOAD/repair.sh"
+status=$?
+set -e
+if [ $status -eq 2 ]; then
+  echo "Allow Terminal under System Settings > Privacy & Security > App Management," >&2
+  echo "then run this again." >&2
+  exit 1
 fi
 
-# 2. The loader's profile files and the Notes script go in your Zen profile.
-ZEN_DIR="$HOME/Library/Application Support/zen"
-PROFILE_REL=$(awk -F= '/^\[Install/{inst=1} inst && /^Default=/{print $2; exit}' "$ZEN_DIR/profiles.ini" 2>/dev/null || true)
-if [ -z "$PROFILE_REL" ]; then
-  PROFILE_REL=$(awk -F= '/^Path=/{p=$2} /^Default=1/{print p; exit}' "$ZEN_DIR/profiles.ini" 2>/dev/null || true)
-fi
-[ -n "$PROFILE_REL" ] || { echo "Couldn't find your Zen profile in $ZEN_DIR/profiles.ini" >&2; exit 1; }
-case "$PROFILE_REL" in /*) PROFILE="$PROFILE_REL" ;; *) PROFILE="$ZEN_DIR/$PROFILE_REL" ;; esac
+# 3. "Zen Notes Repair": a tiny background app that copies the loader back after an
+#    update. It's an app (not a script) so macOS can give it App Management permission.
+rm -rf "$APPLET"
+SCRIPT_DIR="$(mktemp -d)"
+SCRIPT="$SCRIPT_DIR/repair.applescript"
+cat > "$SCRIPT" <<APPLESCRIPT
+try
+  do shell script quoted form of "$PAYLOAD/repair.sh"
+on error errText number errNum
+  if errNum is 2 then
+    display dialog "macOS stopped Zen Notes Repair from updating Zen, so Notes won't show in the Library. Allow it under Privacy & Security > App Management, then quit and reopen Zen." with title "Zen Notes" buttons {"Later", "Open Settings"} default button 2
+    if button returned of result is "Open Settings" then open location "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles"
+  end if
+end try
+APPLESCRIPT
+/usr/bin/osacompile -o "$APPLET" "$SCRIPT"
+rm -rf "$SCRIPT_DIR"
+/usr/bin/plutil -replace LSUIElement -bool true "$APPLET/Contents/Info.plist"
+/usr/bin/plutil -replace CFBundleIdentifier -string "$LABEL" "$APPLET/Contents/Info.plist"
+/usr/bin/codesign --force --deep -s - "$APPLET" 2>/dev/null
 
-mkdir -p "$PROFILE/chrome/utils" "$PROFILE/chrome/JS"
-if [ ! -f "$PROFILE/chrome/utils/boot.sys.mjs" ]; then
-  cp "$HERE/fx-autoconfig/profile/chrome/utils/"* "$PROFILE/chrome/utils/"
-fi
-cp "$HERE/zen-notes-library.uc.mjs" "$PROFILE/chrome/JS/"
-# Tab icons. notes-sprite.svg is Arc's animated Notes icon (not in the repo; see README).
-mkdir -p "$PROFILE/chrome/resources/zen-notes"
-cp "$HERE/note-plain-sprite.svg" "$HERE/note-icon.svg" "$PROFILE/chrome/resources/zen-notes/"
-if [ -f "$HERE/notes-sprite.svg" ]; then
-  cp "$HERE/notes-sprite.svg" "$PROFILE/chrome/resources/zen-notes/"
-fi
-rm -rf "$PROFILE/chrome/zen-notes"
+# 4. Run the check whenever Zen.app changes, at login, and hourly as a backstop.
+mkdir -p "$(dirname "$PLIST")"
+cat > "$PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>$PAYLOAD/repair.sh</string>
+    <string>--check</string>
+  </array>
+  <key>WatchPaths</key>
+  <array>
+    <string>/Applications</string>
+    <string>$APP/Contents/Resources</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>ThrottleInterval</key><integer>30</integer>
+</dict>
+</plist>
+PLIST
+launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
-# 3. Clear Zen's startup cache so the loader is picked up.
-rm -rf "$HOME/Library/Caches/zen/Profiles/$(basename "$PROFILE")/startupCache"
+# 5. Ask for App Management permission now rather than after the next update.
+echo
+echo "One more step: macOS may ask whether \"Zen Notes Repair\" can change apps."
+echo "Allow it (System Settings > Privacy & Security > App Management), so Notes"
+echo "comes back on its own after Zen updates."
+/usr/bin/open -g "$APPLET"
 
-echo "Done. Open Zen and the Library (the sidebar's Library button) now has a Notes section."
-echo "Profile: $PROFILE"
+echo
+echo "Done. Open Zen and the Library now has a Notes section."
