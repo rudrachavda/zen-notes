@@ -1,5 +1,5 @@
 #!/bin/bash
-# Puts the Zen Notes Library files back where Zen expects them.
+# Puts the Zen Notes scripts (Library section, last tab in ⌘T) back where Zen expects them.
 #
 # Zen updates replace Zen.app, which deletes fx-autoconfig's two loader files.
 # A LaunchAgent (set up by install.sh) runs this with --check whenever Zen.app
@@ -48,8 +48,13 @@ foreign_loader() {
 profile_ok() {
   [ -z "$PROFILE" ] && return 0
   [ -f "$PROFILE/chrome/utils/boot.sys.mjs" ] &&
-    cmp -s "$PROFILE/chrome/JS/zen-notes-library.uc.mjs" "$PAYLOAD/zen-notes-library.uc.mjs" &&
-    [ -f "$PROFILE/chrome/resources/zen-notes/note-icon.svg" ]
+    [ -f "$PROFILE/chrome/resources/zen-notes/note-icon.svg" ] || return 1
+  local script
+  for script in "$PAYLOAD/"*.uc.mjs "$PAYLOAD/"*.sys.mjs; do
+    [ -f "$script" ] || continue
+    cmp -s "$PROFILE/chrome/JS/$(basename "$script")" "$script" || return 1
+  done
+  return 0
 }
 
 if [ "$MODE" = "--check" ]; then
@@ -99,7 +104,7 @@ fi
 if [ -n "$PROFILE" ] && ! profile_ok; then
   mkdir -p "$PROFILE/chrome/utils" "$PROFILE/chrome/JS" "$PROFILE/chrome/resources/zen-notes"
   [ -f "$PROFILE/chrome/utils/boot.sys.mjs" ] || cp "$PAYLOAD/fx-autoconfig/profile/chrome/utils/"* "$PROFILE/chrome/utils/"
-  cp "$PAYLOAD/zen-notes-library.uc.mjs" "$PROFILE/chrome/JS/"
+  cp "$PAYLOAD/"*.uc.mjs "$PAYLOAD/"*.sys.mjs "$PROFILE/chrome/JS/" 2>/dev/null
   cp "$PAYLOAD/"*.svg "$PROFILE/chrome/resources/zen-notes/" 2>/dev/null
   rm -rf "$PROFILE/chrome/zen-notes"
   rm -rf "$HOME/Library/Caches/zen/Profiles/$(basename "$PROFILE")/startupCache"

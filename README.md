@@ -101,6 +101,17 @@ The tab's icon is a plain note unless `zen-mod/notes-sprite.svg` exists. That
 file is Arc's animated Notes icon turned into a 36-frame sprite like Zen's
 other Library icons; it's Arc's artwork, so it isn't in this repo.
 
+### Last tab in ⌘T
+
+The same installer also adds `zen-last-tab.sys.mjs`: when you open the floating
+URL bar with `⌘T`, your most recently used tab in the current space is the top,
+preselected result, so `⌘T` then `Enter` jumps back to it (like Arc). Start
+typing and the bar behaves as usual. In `about:config`:
+
+- `zen.urlbar.last-tab.enabled` (default `true`): set to `false` to turn it off.
+- `zen.urlbar.last-tab.everywhere` (default `false`): also show it when you
+  click into the URL bar, not only after `⌘T`.
+
 ## Develop
 
 ```bash
