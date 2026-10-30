@@ -531,3 +531,14 @@ body.is-moving, body.is-moving * { cursor: grabbing !important; user-select: non
   line-height: 1;
 }
 button svg { display: block; flex: none; }
+
+/* The caret before an image or video: draw it as a normal upright caret at the
+   start of the line instead of ProseMirror's horizontal bar. */
+.ProseMirror .ProseMirror-gapcursor:after {
+  top: 2px;
+  left: -1px;
+  width: 0;
+  height: 1.3em;
+  border-top: 0;
+  border-left: 1.5px solid var(--ink);
+}
