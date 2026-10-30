@@ -30,7 +30,7 @@ CONFIG_DIR = Path.home() / "Library" / "Application Support" / "ZenNotes"
 if sys.platform != "darwin":
     CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "zen-notes"
 CONFIG_FILE = CONFIG_DIR / "config.json"
-DEFAULT_FOLDER = Path.home() / "Documents" / "Zen Notes"
+DEFAULT_FOLDER = Path.home() / "Zen Notes"  # outside Documents, which macOS blocks for the helper
 ATTACHMENTS = "attachments"
 WATCH_INTERVAL = 1.5
 

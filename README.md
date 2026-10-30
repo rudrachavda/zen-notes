@@ -23,7 +23,7 @@ Obsidian (or any editor) can open the same notes.
 
 ## How files look
 
-`~/Documents/Zen Notes/My Note.md`:
+`~/Zen Notes/My Note.md`:
 
 ```markdown
 ---
@@ -46,8 +46,8 @@ You need `python3` (run `xcode-select --install` if `python3 -V` doesn't work).
 
    ```bash
    cd helper
-   ./install.sh                                   # notes go in ~/Documents/Zen Notes
-   ./install.sh "$HOME/Documents/Obsidian/Vault/Zen"   # or point it at a folder in your vault
+   ./install.sh                                   # notes go in ~/Zen Notes
+   ./install.sh "$HOME/Notes/Zen"                 # or any folder outside Documents/Desktop/Downloads
    ```
 
    You can also change the folder later from the toolbar popup.
@@ -56,11 +56,13 @@ You need `python3` (run `xcode-select --install` if `python3 -V` doesn't work).
    - **Quick try:** open `about:debugging#/runtime/this-firefox`, click
      "Load Temporary Add-on…" and choose `extension/manifest.json`. It's removed
      when Zen restarts.
-   - **Keep it installed:** sign it for free as a self-distributed add-on.
-     Create API keys at https://addons.mozilla.org/developers/addon/api/key/
-     and run
-     `npx web-ext sign --source-dir extension --channel unlisted --api-key ... --api-secret ...`,
-     then open the signed `.xpi` in Zen. Nothing is published publicly.
+   - **Keep it installed:** sign it for free as a self-distributed add-on
+     (nothing is published publicly). Create an API key at
+     https://addons.mozilla.org/developers/addon/api/key/, then run
+     `./scripts/sign.sh` and paste the issuer and secret when asked (the secret
+     isn't shown or saved). Open the `.xpi` it puts in `signed/` from
+     about:addons → gear icon → Install Add-on From File… Each new signing needs a
+     higher `version` in `extension/manifest.json`.
    - Or, in `about:config`, set `xpinstall.signatures.required` to `false`
      (only works if your Zen build honours it) and open `zen-notes.xpi`.
 

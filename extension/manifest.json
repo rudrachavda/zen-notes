@@ -1,12 +1,17 @@
 {
   "manifest_version": 2,
   "name": "Zen Notes",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Arc-style notes that open as tabs and save as markdown files on your disk.",
   "browser_specific_settings": {
     "gecko": {
       "id": "zen-notes@rudrachavda",
-      "strict_min_version": "115.0"
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
   "icons": {

@@ -42,5 +42,5 @@ for dir in "$HOME/Library/Application Support/zen/NativeMessagingHosts" \
   echo "Registered helper in $dir"
 done
 
-FOLDER=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('$APP_DIR/config.json'))).get('folder'))" 2>/dev/null || echo "$HOME/Documents/Zen Notes")
+FOLDER=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('$APP_DIR/config.json'))).get('folder'))" 2>/dev/null || echo "$HOME/Zen Notes")
 echo "Notes will be saved in: $FOLDER"

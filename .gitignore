@@ -2,3 +2,5 @@ node_modules/
 *.xpi
 .DS_Store
 __pycache__/
+signed/
+web-ext-artifacts/
