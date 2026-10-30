@@ -108,6 +108,10 @@ if [ -n "$PROFILE" ] && ! profile_ok; then
   cp "$PAYLOAD/"*.svg "$PROFILE/chrome/resources/zen-notes/" 2>/dev/null
   rm -rf "$PROFILE/chrome/zen-notes"
   rm -rf "$HOME/Library/Caches/zen/Profiles/$(basename "$PROFILE")/startupCache"
+  # Zen keeps compiled scripts in its startup cache and would keep running the old
+  # ones. .purgecaches next to the app makes it drop that cache on the next start,
+  # wherever the cache lives.
+  touch "$RES/.purgecaches" 2>/dev/null
   log "Restored profile files in $PROFILE"
 fi
 
