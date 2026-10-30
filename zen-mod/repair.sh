@@ -27,14 +27,20 @@ done
 RES="$APP/Contents/Resources"
 
 ZEN_DIR="$HOME/Library/Application Support/zen"
-PROFILE_REL=$(awk -F= '/^\[Install/{inst=1} inst && /^Default=/{print $2; exit}' "$ZEN_DIR/profiles.ini" 2>/dev/null || true)
-if [ -z "$PROFILE_REL" ]; then
-  PROFILE_REL=$(awk -F= '/^Path=/{p=$2} /^Default=1/{print p; exit}' "$ZEN_DIR/profiles.ini" 2>/dev/null || true)
-fi
-PROFILE=""
-if [ -n "$PROFILE_REL" ]; then
-  case "$PROFILE_REL" in /*) PROFILE="$PROFILE_REL" ;; *) PROFILE="$ZEN_DIR/$PROFILE_REL" ;; esac
-fi
+# Every profile a Zen install starts with. There can be several (one per Zen.app
+# location, e.g. after moving or reinstalling Zen), and only the one in use loads
+# the scripts, so set all of them up.
+PROFILES=()
+while IFS= read -r rel; do
+  [ -n "$rel" ] || continue
+  case "$rel" in /*) p="$rel" ;; *) p="$ZEN_DIR/$rel" ;; esac
+  [ -d "$p" ] && PROFILES+=("$p")
+done < <(
+  {
+    awk -F= '/^\[/{inst=($0 ~ /^\[Install/)} inst && /^Default=/{print $2}' "$ZEN_DIR/profiles.ini"
+    awk -F= '/^\[/{p=""} /^Path=/{p=$2} /^Default=1/{print p}' "$ZEN_DIR/profiles.ini"
+  } 2>/dev/null | sort -u
+)
 
 program_ok() {
   cmp -s "$RES/config.js" "$PAYLOAD/fx-autoconfig/program/config.js" &&
@@ -46,7 +52,7 @@ foreign_loader() {
     ! grep -q "boot.sys.mjs" "$RES/config.js" 2>/dev/null
 }
 profile_ok() {
-  [ -z "$PROFILE" ] && return 0
+  local PROFILE="$1"
   [ -f "$PROFILE/chrome/utils/boot.sys.mjs" ] &&
     [ -f "$PROFILE/chrome/resources/zen-notes/note-icon.svg" ] || return 1
   local script
@@ -57,9 +63,17 @@ profile_ok() {
   return 0
 }
 
+profiles_ok() {
+  local profile
+  for profile in ${PROFILES[@]+"${PROFILES[@]}"}; do
+    profile_ok "$profile" || return 1
+  done
+  return 0
+}
+
 if [ "$MODE" = "--check" ]; then
   foreign_loader && exit 0
-  if program_ok && profile_ok; then exit 0; fi
+  if program_ok && profiles_ok; then exit 0; fi
   log "Missing files after a change to Zen; opening the repair app"
   if [ -d "$APPLET" ]; then
     /usr/bin/open -g "$APPLET"
@@ -101,7 +115,8 @@ if ! program_ok; then
   fi
 fi
 
-if [ -n "$PROFILE" ] && ! profile_ok; then
+for PROFILE in ${PROFILES[@]+"${PROFILES[@]}"}; do
+  profile_ok "$PROFILE" && continue
   mkdir -p "$PROFILE/chrome/utils" "$PROFILE/chrome/JS" "$PROFILE/chrome/resources/zen-notes"
   [ -f "$PROFILE/chrome/utils/boot.sys.mjs" ] || cp "$PAYLOAD/fx-autoconfig/profile/chrome/utils/"* "$PROFILE/chrome/utils/"
   cp "$PAYLOAD/"*.uc.mjs "$PAYLOAD/"*.sys.mjs "$PROFILE/chrome/JS/" 2>/dev/null
@@ -113,6 +128,6 @@ if [ -n "$PROFILE" ] && ! profile_ok; then
   # wherever the cache lives.
   touch "$RES/.purgecaches" 2>/dev/null
   log "Restored profile files in $PROFILE"
-fi
+done
 
 exit $status
