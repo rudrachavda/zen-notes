@@ -399,3 +399,70 @@ function watchForLibrary() {
 }
 
 customElements.whenDefined("zen-library").then(watchForLibrary);
+
+// --- Note tabs in the sidebar ---------------------------------------------------
+
+// A web page can't know the colour of the space it sits in, so the note page's own
+// favicon follows the system theme and can vanish on a dark space. Swap it for a
+// chrome:// icon drawn in the tab's text colour, which Zen sets per space.
+function styleNoteTabIcons() {
+  const host = WebExtensionPolicy.getByID(EXTENSION_ID)?.mozExtensionHostname;
+  if (!host) return false;
+  const css = `
+    .tabbrowser-tab[zen-note] .tab-icon-image,
+    .tab-icon-image[src^="moz-extension://${host}/icons/note"] {
+      content: url("chrome://userchrome/content/zen-notes/note-icon.svg") !important;
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor !important;
+      fill-opacity: 0.85;
+    }`;
+  windowUtils.loadSheetUsingURIString("data:text/css," + encodeURIComponent(css), windowUtils.AUTHOR_SHEET);
+  return true;
+}
+
+// Mark note tabs too, in case Zen hands the tab a cached copy of the favicon.
+function markNoteTab(tab) {
+  const host = WebExtensionPolicy.getByID(EXTENSION_ID)?.mozExtensionHostname;
+  const uri = tab.linkedBrowser?.currentURI;
+  const isNote = !!host && uri?.scheme === "moz-extension" && uri.host === host && uri.filePath === "/note.html";
+  if (tab.hasAttribute("zen-note") !== isNote) tab.toggleAttribute("zen-note", isNote);
+}
+function watchNoteTabs() {
+  for (const event of ["TabAttrModified", "TabOpen"]) {
+    gBrowser.tabContainer.addEventListener(event, (e) => markNoteTab(e.target));
+  }
+  gBrowser.addTabsProgressListener({
+    onLocationChange(browser) {
+      const tab = gBrowser.getTabForBrowser(browser);
+      if (tab) markNoteTab(tab);
+    },
+  });
+
+  if (!styleNoteTabIcons()) {
+    // The extension may start after this window; try again once it's up.
+    try {
+      const { Management } = ChromeUtils.importESModule("resource://gre/modules/Extension.sys.mjs");
+      const onReady = (_, ext) => {
+        if (ext?.id === EXTENSION_ID && styleNoteTabIcons()) {
+          Management.off("ready", onReady);
+          for (const tab of gBrowser.tabs) markNoteTab(tab);
+        }
+      };
+      Management.on("ready", onReady);
+    } catch (e) {
+      console.error("Zen Notes: couldn't watch for the extension", e);
+    }
+  }
+  for (const tab of gBrowser.tabs) markNoteTab(tab);
+}
+
+if (gBrowserInit.delayedStartupFinished) {
+  watchNoteTabs();
+} else {
+  const observer = (subject) => {
+    if (subject !== window) return;
+    Services.obs.removeObserver(observer, "browser-delayed-startup-finished");
+    watchNoteTabs();
+  };
+  Services.obs.addObserver(observer, "browser-delayed-startup-finished");
+}

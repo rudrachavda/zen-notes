@@ -49,7 +49,7 @@ fi
 cp "$HERE/zen-notes-library.uc.mjs" "$PROFILE/chrome/JS/"
 # Tab icons. notes-sprite.svg is Arc's animated Notes icon (not in the repo; see README).
 mkdir -p "$PROFILE/chrome/resources/zen-notes"
-cp "$HERE/note-plain-sprite.svg" "$PROFILE/chrome/resources/zen-notes/"
+cp "$HERE/note-plain-sprite.svg" "$HERE/note-icon.svg" "$PROFILE/chrome/resources/zen-notes/"
 if [ -f "$HERE/notes-sprite.svg" ]; then
   cp "$HERE/notes-sprite.svg" "$PROFILE/chrome/resources/zen-notes/"
 fi
