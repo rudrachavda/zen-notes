@@ -72,6 +72,23 @@ If a note tab shows "Is the Zen Notes helper installed?", check that
 `~/Library/Application Support/zen/NativeMessagingHosts/zen_notes.json` exists
 and that its `path` points at a script you can run.
 
+## Notes in Zen's Library (optional)
+
+`zen-mod/` adds a **Notes** tab to Zen's Library (the panel with Downloads,
+History, Spaces), listing every note in your folder with search, open, new note
+and delete. It's a browser-chrome script loaded by
+[fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig) (bundled).
+
+```bash
+# quit Zen first
+./zen-mod/install.sh
+```
+
+The installer copies two small loader files into `Zen.app/Contents/Resources`
+and the script into your profile's `chrome/` folder. If macOS refuses, allow
+Terminal in System Settings → Privacy & Security → App Management and run it
+again. Zen updates replace the app, so run it again after each update.
+
 ## Develop
 
 ```bash
