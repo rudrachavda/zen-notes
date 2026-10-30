@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="dist/popup.css">
+</head>
+<body>
+  <header>
+    <input id="search" type="search" placeholder="Search notes" autofocus>
+    <button id="new" title="New note (⌘/)">New note</button>
+  </header>
+  <ul id="list"></ul>
+  <p id="empty" hidden>No notes yet.</p>
+  <p id="error" hidden></p>
+  <footer>
+    <button id="folder" title="Show the notes folder in Finder"></button>
+    <button id="all">All notes</button>
+    <button id="change">Change</button>
+  </footer>
+  <script src="shortcut.js"></script>
+  <script src="dist/popup.js"></script>
+</body>
+</html>

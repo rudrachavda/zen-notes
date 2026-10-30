@@ -1,0 +1,25 @@
+{
+  "name": "zen-notes",
+  "version": "0.1.0",
+  "description": "Arc-style markdown notes for Zen browser",
+  "scripts": {
+    "build": "node build.mjs --minify",
+    "dev": "node build.mjs",
+    "package": "npm run build && cd extension && zip -qr ../zen-notes.xpi manifest.json background.js shortcut.js note.html popup.html library.html icons dist"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2"
+  },
+  "dependencies": {
+    "@fontsource/nunito": "^5.3.0",
+    "@tiptap/core": "^2.27.3",
+    "@tiptap/extension-image": "^2.27.3",
+    "@tiptap/extension-link": "^2.27.3",
+    "@tiptap/extension-placeholder": "^2.27.3",
+    "@tiptap/extension-underline": "^2.27.3",
+    "@tiptap/pm": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
+    "tiptap-markdown": "^0.8.10"
+  },
+  "private": true
+}

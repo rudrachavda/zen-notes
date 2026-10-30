@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Untitled</title>
+  <link rel="icon" href="icons/note.svg">
+  <link rel="stylesheet" href="dist/note.css">
+</head>
+<body>
+  <div id="banner" hidden></div>
+  <main class="page">
+    <h1 id="title" contenteditable="plaintext-only" data-placeholder="Untitled" spellcheck="false" aria-label="Note title"></h1>
+    <div id="editor"></div>
+  </main>
+
+  <div id="gutter" class="gutter" hidden>
+    <button id="block-mover" class="mover" draggable="false" aria-label="Drag to move (⌥⇧↑ / ⌥⇧↓)" data-icon="grip"></button>
+    <button id="block-chip" class="chip" title="Text style"><span class="chip-label">Aa</span><span class="chip-caret" data-icon="chevron"></span></button>
+  </div>
+  <div id="drop-line" class="drop-line" hidden></div>
+
+  <div id="toolbar" class="toolbar" hidden>
+    <button data-cmd="h1" title="Heading 1">H1</button>
+    <button data-cmd="h2" title="Heading 2">H2</button>
+    <button data-cmd="h3" title="Heading 3">H3</button>
+    <button data-cmd="paragraph" title="Body text">Aa</button>
+    <hr class="sep">
+    <button data-cmd="bulletList" title="Bulleted list" data-icon="bullets"></button>
+    <button data-cmd="orderedList" title="Numbered list" data-icon="numbers"></button>
+    <hr class="sep">
+    <div class="flyout-anchor">
+      <button data-cmd="marks" title="Bold, italic, underline" class="biu" data-icon="biu"></button>
+      <div class="flyout" hidden>
+        <button data-cmd="bold" title="Bold (⌘B)"><b>B</b></button>
+        <button data-cmd="italic" title="Italic (⌘I)"><i>I</i></button>
+        <button data-cmd="underline" title="Underline (⌘U)"><u>U</u></button>
+        <button data-cmd="strike" title="Strikethrough"><s>S</s></button>
+        <button data-cmd="code" title="Inline code" class="mono">&lt;/&gt;</button>
+      </div>
+    </div>
+    <hr class="sep">
+    <button data-cmd="image" title="Insert image" data-icon="image"></button>
+    <button data-cmd="link" title="Add link (⌘K)" data-icon="link"></button>
+  </div>
+
+  <div class="more">
+    <button id="more-button" title="More" data-icon="more"></button>
+    <div id="more-menu" class="menu" hidden>
+      <div class="menu-row">
+        <span>Appearance</span>
+        <div class="theme-switch" id="appearance" role="radiogroup" aria-label="Appearance">
+          <span class="theme-pill" aria-hidden="true"></span>
+          <button data-theme="light" data-icon="sun" role="radio" title="Light"></button>
+          <button data-theme="dark" data-icon="moon" role="radio" title="Dark"></button>
+          <button data-theme="system" data-icon="monitor" role="radio" title="System"></button>
+        </div>
+      </div>
+      <hr>
+      <button data-action="library">All notes</button>
+      <button data-action="reveal">Show in Finder</button>
+      <hr>
+      <button data-action="delete" class="danger">Delete note</button>
+    </div>
+  </div>
+
+  <div class="share">
+    <button id="share-button" title="Share" data-icon="share"></button>
+    <div id="share-card" class="card" hidden>
+      <h2>Share Note</h2>
+      <p>Notes are saved as Markdown files on your Mac.</p>
+      <div id="share-path" class="path"></div>
+      <div class="card-actions">
+        <button data-action="obsidian" class="secondary">Open in Obsidian</button>
+        <button data-action="copy" class="primary">Copy Markdown</button>
+      </div>
+      <button data-action="reveal" class="text-link">Show in Finder</button>
+    </div>
+  </div>
+  <div id="status" aria-live="polite"></div>
+  <input id="file-input" type="file" accept="image/*,video/mp4,video/quicktime,video/webm,.mov,.m4v" multiple hidden>
+
+  <script src="shortcut.js"></script>
+  <script src="dist/note.js"></script>
+</body>
+</html>

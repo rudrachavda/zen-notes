@@ -1,0 +1,72 @@
+{
+  "manifest_version": 2,
+  "name": "Zen Notes",
+  "version": "0.3.0",
+  "description": "Arc-style notes that open as tabs and save as markdown files on your disk.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "zen-notes@rudrachavda",
+      "strict_min_version": "115.0"
+    }
+  },
+  "icons": {
+    "48": "icons/note.svg",
+    "96": "icons/note.svg"
+  },
+  "permissions": [
+    "nativeMessaging",
+    "tabs",
+    "menus",
+    "clipboardWrite",
+    "storage",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "Zen Notes",
+    "default_icon": "icons/note.svg",
+    "default_popup": "popup.html",
+    "theme_icons": [
+      {
+        "light": "icons/note-light.svg",
+        "dark": "icons/note-dark.svg",
+        "size": 16
+      },
+      {
+        "light": "icons/note-light.svg",
+        "dark": "icons/note-dark.svg",
+        "size": 32
+      }
+    ]
+  },
+  "commands": {
+    "new-note": {
+      "suggested_key": {
+        "default": "Ctrl+Alt+N"
+      },
+      "description": "Create a new note"
+    },
+    "open-library": {
+      "suggested_key": {
+        "default": "Ctrl+Alt+L"
+      },
+      "description": "Open all notes"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "shortcut.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
