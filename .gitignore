@@ -4,3 +4,4 @@ node_modules/
 __pycache__/
 signed/
 web-ext-artifacts/
+zen-mod/notes-sprite.svg

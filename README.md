@@ -89,6 +89,10 @@ and the script into your profile's `chrome/` folder. If macOS refuses, allow
 Terminal in System Settings → Privacy & Security → App Management and run it
 again. Zen updates replace the app, so run it again after each update.
 
+The tab's icon is a plain note unless `zen-mod/notes-sprite.svg` exists. That
+file is Arc's animated Notes icon turned into a 36-frame sprite like Zen's
+other Library icons; it's Arc's artwork, so it isn't in this repo.
+
 ## Develop
 
 ```bash

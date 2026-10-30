@@ -47,6 +47,11 @@ if [ ! -f "$PROFILE/chrome/utils/boot.sys.mjs" ]; then
   cp "$HERE/fx-autoconfig/profile/chrome/utils/"* "$PROFILE/chrome/utils/"
 fi
 cp "$HERE/zen-notes-library.uc.mjs" "$PROFILE/chrome/JS/"
+# Animated icon made from Arc's own Notes icon (not in the repo; see README).
+if [ -f "$HERE/notes-sprite.svg" ]; then
+  mkdir -p "$PROFILE/chrome/zen-notes"
+  cp "$HERE/notes-sprite.svg" "$PROFILE/chrome/zen-notes/"
+fi
 
 # 3. Clear Zen's startup cache so the loader is picked up.
 rm -rf "$HOME/Library/Caches/zen/Profiles/$(basename "$PROFILE")/startupCache"
