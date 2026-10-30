@@ -104,13 +104,16 @@ other Library icons; it's Arc's artwork, so it isn't in this repo.
 ### Last tab in ⌘T
 
 The same installer also adds `zen-last-tab.sys.mjs`: when you open the floating
-URL bar with `⌘T`, your most recently used tab in the current space is the top,
+URL bar with `⌘T`, your most recently used tab (in any space) is the top,
 preselected result, so `⌘T` then `Enter` jumps back to it (like Arc). Start
 typing and the bar behaves as usual. In `about:config`:
 
 - `zen.urlbar.last-tab.enabled` (default `true`): set to `false` to turn it off.
 - `zen.urlbar.last-tab.everywhere` (default `false`): also show it when you
   click into the URL bar, not only after `⌘T`.
+- `zen.urlbar.last-tab.current-space-only` (default `false`): only look at tabs
+  in the space you're in. Otherwise picking a tab from another space switches to
+  that space, and the row shows the space's name.
 
 ### Notes in ⌘T
 

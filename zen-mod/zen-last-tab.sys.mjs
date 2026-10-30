@@ -6,7 +6,7 @@
 
 // Loaded once by fx-autoconfig (a .sys.mjs in chrome/JS is a background module).
 // Adds a URL bar provider that, while the bar is empty and opened with ⌘T, offers
-// the most recently used tab in the current space as the preselected result.
+// the most recently used tab (in any space) as the preselected result.
 
 import { ProvidersManager } from "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs";
 import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
@@ -26,12 +26,16 @@ const ENABLED_PREF = "zen.urlbar.last-tab.enabled";
 // false (default): only when the bar was opened with ⌘T. true: also when you
 // click into an empty URL bar.
 const EVERYWHERE_PREF = "zen.urlbar.last-tab.everywhere";
+// true: only look at tabs in the space you're in.
+const CURRENT_SPACE_PREF = "zen.urlbar.last-tab.current-space-only";
 
 // --- Finding the tab ------------------------------------------------------------
 
 function lastUsedTab(win) {
   const { gBrowser, gZenWorkspaces } = win;
-  const space = gZenWorkspaces?.activeWorkspace;
+  const space = Services.prefs.getBoolPref(CURRENT_SPACE_PREF, false)
+    ? gZenWorkspaces?.activeWorkspace
+    : null;
   let best = null;
   for (const tab of gBrowser.tabs) {
     if (
@@ -51,6 +55,16 @@ function lastUsedTab(win) {
     }
   }
   return best;
+}
+
+// The tab's space name when it isn't the one you're in, shown on the row.
+function spaceName(win, tab) {
+  const workspaces = win.gZenWorkspaces;
+  const id = tab.getAttribute("zen-workspace-id");
+  if (!workspaces || !id || tab.hasAttribute("zen-essential") || id == workspaces.activeWorkspace) {
+    return "";
+  }
+  return workspaces.getWorkspaceFromId?.(id)?.name || "";
 }
 
 // --- Provider -------------------------------------------------------------------
@@ -110,6 +124,7 @@ class ZenLastTabProvider extends UrlbarProvider {
           zenLastTabPanel: tab.linkedPanel,
           title: tab.label || tab.linkedBrowser?.currentURI?.spec || "",
           icon: tab.getAttribute("image") || DEFAULT_ICON,
+          space: spaceName(win, tab),
         },
       })
     );
@@ -119,6 +134,10 @@ class ZenLastTabProvider extends UrlbarProvider {
     return {
       icon: { attributes: { src: result.payload.icon } },
       title: { textContent: result.payload.title, attributes: { dir: "auto" } },
+      space: {
+        textContent: result.payload.space,
+        attributes: { dir: "auto", hidden: !result.payload.space },
+      },
       action: { l10n: { id: "urlbar-result-action-switch-tab" } },
     };
   }
@@ -140,6 +159,11 @@ class ZenLastTabProvider extends UrlbarProvider {
           classList: ["urlbarView-title"],
         },
         {
+          name: "space",
+          tag: "span",
+          classList: ["urlbarView-prettyName"],
+        },
+        {
           name: "action",
           tag: "span",
           classList: ["urlbarView-action", "urlbarView-switchToTab"],
@@ -148,7 +172,7 @@ class ZenLastTabProvider extends UrlbarProvider {
     };
   }
 
-  onEngagement(queryContext, controller, details) {
+  async onEngagement(queryContext, controller, details) {
     const panel = details.result?.payload.zenLastTabPanel;
     if (!panel) {
       return;
@@ -157,13 +181,22 @@ class ZenLastTabProvider extends UrlbarProvider {
       details.element?.documentGlobal ??
       details.element?.ownerGlobal ??
       lazy.BrowserWindowTracker.getTopWindow();
-    const tab = win?.gBrowser.tabs.find(t => t.linkedPanel == panel);
-    if (tab && !tab.closing) {
-      // Zen closes its ⌘T bar itself when the selected tab changes.
-      win.gBrowser.selectedTab = tab;
+    if (!win) {
+      return;
     }
-    win?.gBrowser.selectedBrowser.focus();
+    const tab = win.gBrowser.tabs.find(t => t.linkedPanel == panel);
+    if (tab && !tab.closing) {
+      // Zen closes its ⌘T bar itself when the selected tab changes. Going
+      // through Zen's helper also switches space (and container) if needed.
+      if (win.gZenWorkspaces?.switchTabIfNeeded) {
+        await win.gZenWorkspaces.switchTabIfNeeded(tab);
+      } else {
+        win.gBrowser.selectedTab = tab;
+      }
+    }
+    win.gBrowser.selectedBrowser.focus();
   }
+
 }
 
 // --- Registration ---------------------------------------------------------------
