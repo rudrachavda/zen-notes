@@ -7,12 +7,14 @@ import "./note.css";
 import { Editor, Extension } from "@tiptap/core";
 import { NodeSelection, Plugin, TextSelection } from "@tiptap/pm/state";
 import { GapCursor } from "@tiptap/pm/gapcursor";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import { Node } from "@tiptap/core";
 import { Markdown } from "tiptap-markdown";
 import { ICONS } from "./icons.js";
 
@@ -157,24 +159,17 @@ const Media = Image.extend({
   },
 });
 
-// --- Link previews: a paragraph that is only a link gets a card under it.
-// The markdown stays a plain link.
+// --- Link previews: a link on its own line shows as a card. In the markdown it
+// stays a plain link on its own line (<https://…>), so Obsidian still reads it.
 
-function soleLink(node) {
-  if (node.type.name !== "paragraph" || node.childCount !== 1) return null;
-  const child = node.firstChild;
-  const link = child.isText && child.marks.find((m) => m.type.name === "link");
-  const href = link?.attrs.href;
-  return href && /^https?:\/\//.test(href) && !isEmbedUrl(href) ? href : null;
-}
+const bareLink = (href) => /^https?:\/\//.test(href) && !isEmbedUrl(href);
 
 function linkCard(href) {
   const card = document.createElement("a");
   card.className = "link-card loading";
   card.href = href;
   card.target = "_blank";
-  card.contentEditable = "false";
-  const text = document.createElement("span");
+    const text = document.createElement("span");
   text.className = "link-card-text";
   const title = document.createElement("strong");
   title.textContent = new URL(href).hostname.replace(/^www\./, "");
@@ -210,32 +205,48 @@ function linkCard(href) {
   return card;
 }
 
-const LinkPreviews = Extension.create({
-  name: "linkPreviews",
-  addProseMirrorPlugins() {
-    const build = (doc) => {
-      const decorations = [];
-      doc.forEach((node, offset) => {
-        const href = soleLink(node);
-        if (!href) return;
-        decorations.push(Decoration.node(offset, offset + node.nodeSize, { class: "has-link-card" }));
-        decorations.push(Decoration.widget(offset + node.nodeSize, () => linkCard(href), { key: href, side: -1, ignoreSelection: true, stopEvent: () => true }));
-      });
-      return DecorationSet.create(doc, decorations);
-    };
+const Bookmark = Node.create({
+  name: "bookmark",
+  group: "block",
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return { href: { default: "" } };
+  },
+  parseHTML() {
     return [
-      new Plugin({
-        state: {
-          init: (_, { doc }) => build(doc),
-          apply: (tr, old) => (tr.docChanged ? build(tr.doc) : old),
+      { tag: "div[data-bookmark]", getAttrs: (el) => ({ href: el.getAttribute("data-bookmark") }) },
+      {
+        // A paragraph holding nothing but one link.
+        tag: "p",
+        priority: 60,
+        getAttrs: (el) => {
+          const a = el.children.length === 1 && el.firstElementChild.tagName === "A" ? el.firstElementChild : null;
+          const href = a?.getAttribute("href") || "";
+          return a && el.textContent.trim() === a.textContent.trim() && bareLink(href) ? { href } : false;
         },
-        props: {
-          decorations(state) {
-            return this.getState(state);
-          },
-        },
-      }),
+      },
     ];
+  },
+  renderHTML({ node }) {
+    return ["div", { "data-bookmark": node.attrs.href }];
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const card = linkCard(node.attrs.href);
+      return { dom: card };
+    };
+  },
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state, node) {
+          state.write(`<${node.attrs.href}>`);
+          state.closeBlock(node);
+        },
+        parse: {},
+      },
+    };
   },
 });
 
@@ -262,17 +273,24 @@ async function insertMediaFiles(files, pos = null) {
 }
 
 function insertMediaNodes(nodes, pos = null) {
+  const dropped = pos != null; // only drops re-centre the page
   const { state } = editor;
   if (pos == null) {
     const { selection } = state;
     if (selection.node) pos = selection.to; // a selected image: go after it
-    else if (selection.$from.parent.textContent === "" && selection.$from.depth === 1) pos = selection.$from.before();
+    else if (selection.$from.parent.textContent === "" && selection.$from.depth === 1) {
+      // On an empty line: replace the line instead of leaving it behind.
+      pos = { from: selection.$from.before(), to: selection.$from.after() };
+    }
     else pos = selection.$from.depth ? selection.$from.after(1) : selection.from;
   }
-  const dropped = pos;
-  editor.chain().insertContentAt(pos, nodes).run();
-  editor.view.dom.focus({ preventScroll: true });
-  centerBlock(dropped);
+  if (dropped) {
+    editor.chain().insertContentAt(pos, nodes).run();
+    editor.view.dom.focus({ preventScroll: true });
+    centerBlock(pos);
+  } else {
+    editor.chain().focus().insertContentAt(pos, nodes).run();
+  }
 }
 
 // --- Editor
@@ -284,7 +302,14 @@ const editor = new Editor({
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),
     Media,
-    LinkPreviews,
+    Bookmark,
+    // Write checklists without blank lines between items, like the other lists.
+    TaskList.extend({
+      addAttributes() {
+        return { ...this.parent?.(), tight: { default: true, rendered: false } };
+      },
+    }),
+    TaskItem.configure({ nested: true }),
     Placeholder.configure({ placeholder: "Start writing…" }),
     Markdown.configure({ html: true, tightLists: true, linkify: true, transformPastedText: true }),
   ],
@@ -299,6 +324,12 @@ const editor = new Editor({
       const text = event.clipboardData?.getData("text/plain").trim() || "";
       if (/^\S+$/.test(text) && isEmbedUrl(text)) {
         insertMediaNodes([{ type: "image", attrs: { src: text, alt: "" } }]);
+        return true;
+      }
+      // A link pasted on an empty line becomes just the preview card.
+      const { $from, empty } = editor.state.selection;
+      if (/^\S+$/.test(text) && bareLink(text) && empty && $from.parent.type.name === "paragraph" && !$from.parent.textContent) {
+        insertMediaNodes([{ type: "bookmark", attrs: { href: text } }]);
         return true;
       }
       return false;
@@ -483,6 +514,7 @@ const COMMANDS = {
   paragraph: (c) => c.setParagraph(),
   bulletList: (c) => c.toggleBulletList(),
   orderedList: (c) => c.toggleOrderedList(),
+  taskList: (c) => c.toggleTaskList(),
   bold: (c) => c.toggleBold(),
   italic: (c) => c.toggleItalic(),
   underline: (c) => c.toggleUnderline(),
@@ -494,9 +526,10 @@ const ACTIVE = {
   h1: () => editor.isActive("heading", { level: 1 }),
   h2: () => editor.isActive("heading", { level: 2 }),
   h3: () => editor.isActive("heading", { level: 3 }),
-  paragraph: () => editor.isActive("paragraph") && !editor.isActive("bulletList") && !editor.isActive("orderedList"),
+  paragraph: () => editor.isActive("paragraph") && !editor.isActive("bulletList") && !editor.isActive("orderedList") && !editor.isActive("taskList"),
   bulletList: () => editor.isActive("bulletList"),
   orderedList: () => editor.isActive("orderedList"),
+  taskList: () => editor.isActive("taskList"),
   marks: () => ["bold", "italic", "underline", "strike", "code"].some((m) => editor.isActive(m)),
   bold: () => editor.isActive("bold"),
   italic: () => editor.isActive("italic"),
@@ -534,6 +567,7 @@ function blockLabel(node) {
   if (node.type.name === "heading") return `H${node.attrs.level}`;
   if (node.type.name === "bulletList") return ICONS.bullets;
   if (node.type.name === "orderedList") return ICONS.numbers;
+  if (node.type.name === "taskList") return ICONS.checklist;
   return "Aa";
 }
 
@@ -618,6 +652,8 @@ document.addEventListener("mousemove", (e) => {
 });
 
 gutter.addEventListener("mousedown", (e) => e.preventDefault()); // keep the caret
+// A click in the text moves the picker to the clicked line right away.
+editor.view.dom.addEventListener("mousedown", () => (hoverIndex = null));
 chip.addEventListener("click", (e) => {
   const index = Number(gutter.dataset.index);
   if (index !== caretBlockIndex() || !editor.view.hasFocus()) caretToLineStart(e.clientY, index);
@@ -940,7 +976,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-const BLOCK_COMMANDS = new Set(["h1", "h2", "h3", "paragraph", "bulletList", "orderedList"]);
+const BLOCK_COMMANDS = new Set(["h1", "h2", "h3", "paragraph", "bulletList", "orderedList", "taskList"]);
 
 toolbar.addEventListener("mousedown", (e) => e.preventDefault()); // keep the selection
 toolbar.addEventListener("click", (e) => {
