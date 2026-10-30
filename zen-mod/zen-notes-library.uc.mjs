@@ -290,12 +290,23 @@ class ZenNotesLibrarySection extends ZenLibrarySearchSection {
     return html`<div class="zen-library-group">${repeat(notes, (n) => n.id, (n) => this.#renderNote(n))}</div>`;
   }
 
-  renderFooter() {
+  // Sits next to the search box, where other sections put their Filter button.
+  renderTopButton() {
     return html`
-      <div class="zen-notes-footer">
-        <button class="zen-notes-new" @click=${() => newNote()}>New note</button>
-      </div>
+      <button
+        class="zen-library-filter-button zen-notes-new"
+        title="New note"
+        aria-label="New note"
+        @click=${() => newNote()}
+      >
+        <img src="chrome://userchrome/content/zen-notes/new-note.svg" alt="" />
+      </button>
     `;
+  }
+
+  // No filter panel to go with the button.
+  renderPanel() {
+    return "";
   }
 }
 
@@ -318,24 +329,12 @@ const STYLE = `
   opacity: 0.85;
 }
 .zen-notes-row .zen-library-row-title[placeholder] { opacity: 0.5; }
+.zen-notes-new { width: 36px; padding: 0; justify-content: center; }
 .zen-notes-row .zen-library-row-subtitle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.zen-notes-footer { display: flex; justify-content: center; padding: 10px 0 4px; }
-.zen-notes-new {
-  appearance: none;
-  border: 0;
-  border-radius: 8px;
-  padding: 7px 16px;
-  font: inherit;
-  font-weight: 600;
-  color: var(--zen-accent-button-color, white);
-  background: var(--zen-accent-button-background, var(--zen-primary-color));
-  cursor: pointer;
-}
-.zen-notes-new:hover { filter: brightness(1.08); }
 `;
 
 // Icons are installed to <profile>/chrome/resources/zen-notes/ by install.sh and

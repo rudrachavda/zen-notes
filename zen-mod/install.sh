@@ -1,9 +1,10 @@
 #!/bin/bash
-# Adds a "Notes" section to Zen's Library, and keeps it there after Zen updates.
+# Adds a "Notes" section to Zen's Library, note search and your last used tab to
+# the ⌘T bar, and keeps them working after Zen updates.
 #
 # Zen only runs CSS mods on its own, so this sets up fx-autoconfig, a small,
 # widely used loader for browser scripts (https://github.com/MrOtherGuy/fx-autoconfig),
-# then adds zen-notes-library.uc.mjs to your Zen profile. Quit Zen before running.
+# then adds the scripts here (*.uc.mjs, *.sys.mjs) to your Zen profile. Quit Zen before running.
 #
 # Zen updates replace Zen.app and remove the loader, so this also installs a
 # LaunchAgent that puts it back by itself (see repair.sh).
@@ -41,7 +42,8 @@ fi
 mkdir -p "$PAYLOAD"
 rm -rf "$PAYLOAD/fx-autoconfig"
 cp -R "$HERE/fx-autoconfig" "$PAYLOAD/"
-cp "$HERE/zen-notes-library.uc.mjs" "$HERE/repair.sh" "$PAYLOAD/"
+rm -f "$PAYLOAD/"*.uc.mjs "$PAYLOAD/"*.sys.mjs
+cp "$HERE/"*.uc.mjs "$HERE/"*.sys.mjs "$HERE/repair.sh" "$PAYLOAD/"
 rm -f "$PAYLOAD/"*.svg
 # notes-sprite.svg is Arc's animated Notes icon (not in the repo; see README).
 cp "$HERE/"*.svg "$PAYLOAD/"
@@ -115,4 +117,5 @@ echo "comes back on its own after Zen updates."
 /usr/bin/open -g "$APPLET"
 
 echo
-echo "Done. Open Zen and the Library now has a Notes section."
+echo "Done. Open Zen: the Library has a Notes section, and ⌘T then Enter jumps back"
+echo "to your last used tab."
