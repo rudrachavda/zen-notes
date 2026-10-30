@@ -322,16 +322,14 @@ const STYLE = `
 .zen-notes-new:hover { filter: brightness(1.08); }
 `;
 
-// Plain note icon, used when the animated Arc icon isn't installed.
-const FALLBACK_SPRITE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 20' fill='context-stroke'%3E%3Csymbol id='n' viewBox='-2.256 0 20.9372 20.9372' width='20' height='20'%3E%3Cpath d='M0 17.8696C0 19.916 1.00683 20.9332 3.02218 20.9332L13.3924 20.9332C15.4099 20.9332 16.4249 19.916 16.4249 17.8696L16.4249 3.06359C16.4249 1.02753 15.4099 0 13.3924 0L3.02218 0C1.00683 0 0 1.02753 0 3.06359ZM1.57069 17.8447L1.57069 3.08851C1.57069 2.11324 2.09254 1.57069 3.10921 1.57069L13.3157 1.57069C14.322 1.57069 14.846 2.11324 14.846 3.08851L14.846 17.8447C14.846 18.8199 14.322 19.3625 13.3157 19.3625L3.10921 19.3625C2.09254 19.3625 1.57069 18.8199 1.57069 17.8447Z'/%3E%3Cpath d='M4.5165 5.65306L11.9188 5.65306C12.265 5.65306 12.5199 5.38565 12.5199 5.04156C12.5199 4.70994 12.265 4.45288 11.9188 4.45288L4.5165 4.45288C4.16206 4.45288 3.905 4.70994 3.905 5.04156C3.905 5.38565 4.16206 5.65306 4.5165 5.65306Z'/%3E%3Cpath d='M4.5165 9.06545L11.9188 9.06545C12.265 9.06545 12.5199 8.78769 12.5199 8.44571C12.5199 8.12233 12.265 7.85492 11.9188 7.85492L4.5165 7.85492C4.16206 7.85492 3.905 8.12233 3.905 8.44571C3.905 8.78769 4.16206 9.06545 4.5165 9.06545Z'/%3E%3Cpath d='M4.5165 12.4675L8.02193 12.4675C8.36813 12.4675 8.62519 12.2104 8.62519 11.8788C8.62519 11.5347 8.36813 11.2673 8.02193 11.2673L4.5165 11.2673C4.16206 11.2673 3.905 11.5347 3.905 11.8788C3.905 12.2104 4.16206 12.4675 4.5165 12.4675Z'/%3E%3C/symbol%3E%3Cuse href='%23n' x='0'/%3E%3Cuse href='%23n' x='20'/%3E%3Cuse href='%23n' x='40'/%3E%3Cuse href='%23n' x='60'/%3E%3Cuse href='%23n' x='80'/%3E%3Cuse href='%23n' x='100'/%3E%3Cuse href='%23n' x='120'/%3E%3Cuse href='%23n' x='140'/%3E%3Cuse href='%23n' x='160'/%3E%3Cuse href='%23n' x='180'/%3E%3Cuse href='%23n' x='200'/%3E%3Cuse href='%23n' x='220'/%3E%3Cuse href='%23n' x='240'/%3E%3Cuse href='%23n' x='260'/%3E%3Cuse href='%23n' x='280'/%3E%3Cuse href='%23n' x='300'/%3E%3Cuse href='%23n' x='320'/%3E%3Cuse href='%23n' x='340'/%3E%3Cuse href='%23n' x='360'/%3E%3Cuse href='%23n' x='380'/%3E%3Cuse href='%23n' x='400'/%3E%3Cuse href='%23n' x='420'/%3E%3Cuse href='%23n' x='440'/%3E%3Cuse href='%23n' x='460'/%3E%3Cuse href='%23n' x='480'/%3E%3Cuse href='%23n' x='500'/%3E%3Cuse href='%23n' x='520'/%3E%3Cuse href='%23n' x='540'/%3E%3Cuse href='%23n' x='560'/%3E%3Cuse href='%23n' x='580'/%3E%3Cuse href='%23n' x='600'/%3E%3Cuse href='%23n' x='620'/%3E%3Cuse href='%23n' x='640'/%3E%3Cuse href='%23n' x='660'/%3E%3Cuse href='%23n' x='680'/%3E%3Cuse href='%23n' x='700'/%3E%3C/svg%3E";
-
-// The animated icon (36 frames, like Zen's own Library icons) is copied to
-// <profile>/chrome/zen-notes/notes-sprite.svg by install.sh.
-let sprite = FALLBACK_SPRITE;
-const spriteReady = IOUtils.readUTF8(
-  PathUtils.join(Services.dirsvc.get("UChrm", Ci.nsIFile).path, "zen-notes", "notes-sprite.svg")
-).then(
-  (svg) => (sprite = "data:image/svg+xml," + encodeURIComponent(svg)),
+// Icons are installed to <profile>/chrome/resources/zen-notes/ by install.sh and
+// loaded through chrome:// because Firefox only applies context-fill/stroke
+// (the accent colours) to chrome:// and resource:// images.
+const ICON_DIR = PathUtils.join(Services.dirsvc.get("UChrm", Ci.nsIFile).path, "resources", "zen-notes");
+let sprite = "chrome://userchrome/content/zen-notes/note-plain-sprite.svg";
+// Arc's animated Notes icon (36 frames, like Zen's own Library icons), if installed.
+const spriteReady = IOUtils.exists(PathUtils.join(ICON_DIR, "notes-sprite.svg")).then(
+  (found) => found && (sprite = "chrome://userchrome/content/zen-notes/notes-sprite.svg"),
   () => {}
 );
 
