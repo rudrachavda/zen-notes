@@ -16,6 +16,11 @@ Obsidian (or any editor) can open the same notes.
   `attachments/` folder next to the note.
 - **Share button** (bottom right): copy as Markdown, open in Obsidian, show in
   Finder, delete (moves the file to the Trash).
+- **Colors:** the ⋮ menu (top right) has Background and Text swatches, plus a
+  custom color picker, for the note you're in. "Use these colors for all notes"
+  makes them the default; notes with their own colors keep them. Dark
+  backgrounds switch the menus and toolbar to dark styling. Colors are kept by
+  the extension, not written into the `.md` file.
 - **Pin it:** a note is a normal tab, so you can pin it or drop it in Essentials
   in Zen's sidebar like any other tab.
 - Notes save as you type. If you edit a note in Obsidian while it's open in Zen,
