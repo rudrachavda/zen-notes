@@ -416,6 +416,7 @@ async function load() {
   }
   const note = await readWithRetry();
   setNoteId(note.id);
+  applyColors();
   notePath = note.path;
   fileTitle = note.title;
   setTitle(note.title);
@@ -438,6 +439,7 @@ async function readWithRetry(attempts = 5) {
 }
 
 function setNoteId(id) {
+  if (id !== noteId) moveColors(noteId, id);
   if (id === noteId && location.search.includes(encodeURIComponent(id))) return;
   noteId = id;
   history.replaceState(null, "", `?id=${encodeURIComponent(id)}`);
@@ -1138,10 +1140,20 @@ const appearance = $("#appearance");
 
 const themePill = appearance.querySelector(".theme-pill");
 
-function applyTheme(theme) {
-  theme = theme === "light" || theme === "dark" ? theme : "system";
+let themeSetting = "system";
+
+// A note with its own background picks light or dark styling to match it;
+// otherwise the Appearance setting decides.
+function renderTheme() {
+  const theme = colorTone() || themeSetting;
   if (theme === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = theme;
+}
+
+function applyTheme(theme) {
+  theme = theme === "light" || theme === "dark" ? theme : "system";
+  themeSetting = theme;
+  renderTheme();
   const buttons = [...appearance.querySelectorAll("button")];
   buttons.forEach((btn, i) => {
     const on = btn.dataset.theme === theme;
@@ -1162,6 +1174,188 @@ appearance.addEventListener("click", (e) => {
   if (!theme) return;
   applyTheme(theme);
   browser.storage.local.set({ theme });
+});
+
+// --- Colors: each note can have its own background and text color (⋮ menu).
+// "Default" follows the colors set with "Use these colors for all notes", or
+// the Appearance theme if none are set. Kept in extension storage, not in the
+// .md file, so Obsidian sees plain notes.
+
+const BG_COLORS = [
+  ["White", "#ffffff"], ["Paper", "#fdf8ee"], ["Sand", "#f2e8d5"], ["Rose", "#fbe5e3"],
+  ["Peach", "#fde9d6"], ["Lemon", "#fbf5cf"], ["Mint", "#e3f4e8"], ["Sky", "#e2eefb"],
+  ["Lavender", "#ece7fb"], ["Slate", "#2c3138"], ["Night", "#17171d"], ["Forest", "#1d2a23"],
+];
+const INK_COLORS = [
+  ["Ink", "#2a2733"], ["Indigo", "#2b2a8f"], ["Brown", "#6b4226"], ["Green", "#2f6b3f"],
+  ["Blue", "#1f4e8c"], ["Plum", "#6b2d6b"], ["Red", "#a8322d"], ["Cream", "#f1ead8"],
+  ["White", "#ffffff"], ["Gold", "#e8c76a"], ["Mint", "#9fe0b8"], ["Sky", "#9cc8ff"],
+];
+
+let noteColors = {}; // { [noteId]: { bg?, ink? } }
+let defaultColors = {}; // { bg?, ink? }
+
+const isHex = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
+
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function currentColors() {
+  const own = noteColors[noteId] || {};
+  const pick = (k) => (isHex(own[k]) ? own[k] : isHex(defaultColors[k]) ? defaultColors[k] : null);
+  const bg = pick("bg");
+  let ink = pick("ink");
+  // A default text color that's hard to read on this note's own background
+  // gives way to the theme's text color for that background.
+  if (bg && ink && !isHex(own.ink) && contrast(bg, ink) < 3) ink = null;
+  return { bg, ink };
+}
+
+function colorTone() {
+  const { bg } = currentColors();
+  return bg ? (luminance(bg) < 0.25 ? "dark" : "light") : null;
+}
+
+const DERIVED = {
+  "--muted": "color-mix(in srgb, var(--ink) 55%, var(--paper))",
+  "--rule": "color-mix(in srgb, var(--ink) 12%, transparent)",
+  "--code-bg": "color-mix(in srgb, var(--ink) 8%, transparent)",
+};
+
+function applyColors() {
+  const { bg, ink } = currentColors();
+  const set = (el, name, value) => (value ? el.style.setProperty(name, value) : el.style.removeProperty(name));
+  // Background covers the whole page; text color only the note itself, so
+  // menus and toolbars keep the theme's colors.
+  set(document.documentElement, "--paper", bg);
+  const page = $(".page");
+  set(page, "--ink", ink);
+  set(page, "--title", ink);
+  for (const [name, value] of Object.entries(DERIVED)) set(page, name, bg || ink ? value : null);
+  renderTheme();
+  renderSwatches();
+}
+
+function swatchButton(kind, name, value) {
+  const btn = document.createElement("button");
+  btn.className = "swatch";
+  btn.setAttribute("role", "radio");
+  btn.dataset.kind = kind;
+  btn.dataset.color = value;
+  btn.title = name;
+  btn.setAttribute("aria-label", name);
+  btn.style.setProperty("--swatch", value);
+  return btn;
+}
+
+function buildSwatches(kind, colors) {
+  const box = $(`#${kind}-swatches`);
+  const auto = swatchButton(kind, "Default", "");
+  auto.classList.add("auto");
+  box.append(auto);
+  for (const [name, value] of colors) box.append(swatchButton(kind, name, value));
+  const custom = document.createElement("label");
+  custom.className = "swatch custom";
+  custom.title = "Custom color";
+  const input = document.createElement("input");
+  input.type = "color";
+  input.dataset.kind = kind;
+  input.setAttribute("aria-label", "Custom color");
+  custom.append(input);
+  box.append(custom);
+}
+
+function renderSwatches() {
+  const own = noteColors[noteId] || {};
+  const shown = currentColors();
+  for (const kind of ["bg", "ink"]) {
+    const value = isHex(own[kind]) ? own[kind].toLowerCase() : "";
+    const box = $(`#${kind}-swatches`);
+    let matched = false;
+    for (const btn of box.querySelectorAll("button.swatch")) {
+      const on = btn.dataset.color === value;
+      matched ||= on;
+      btn.setAttribute("aria-checked", on);
+    }
+    // The Default swatch previews what "Default" currently looks like.
+    const auto = box.querySelector(".auto");
+    const fallback = isHex(defaultColors[kind]) ? defaultColors[kind] : null;
+    auto.classList.toggle("themed", !fallback);
+    if (fallback) auto.style.setProperty("--swatch", fallback);
+    else auto.style.removeProperty("--swatch");
+    const custom = box.querySelector(".custom");
+    custom.classList.toggle("on", !matched);
+    if (!matched) custom.style.setProperty("--swatch", value);
+    else custom.style.removeProperty("--swatch");
+    custom.querySelector("input").value = shown[kind] || (kind === "bg" ? "#fdf8ee" : "#2a2733");
+  }
+}
+
+function setNoteColor(kind, value, persist = true) {
+  if (!noteId) return;
+  const own = { ...(noteColors[noteId] || {}) };
+  if (value) own[kind] = value.toLowerCase();
+  else delete own[kind];
+  noteColors = { ...noteColors };
+  if (Object.keys(own).length) noteColors[noteId] = own;
+  else delete noteColors[noteId];
+  applyColors();
+  if (persist) browser.storage.local.set({ noteColors });
+}
+
+function moveColors(from, to) {
+  if (!from || !to || !noteColors[from]) return;
+  noteColors = { ...noteColors, [to]: noteColors[from] };
+  delete noteColors[from];
+  browser.storage.local.set({ noteColors });
+}
+
+buildSwatches("bg", BG_COLORS);
+buildSwatches("ink", INK_COLORS);
+
+for (const kind of ["bg", "ink"]) {
+  const box = $(`#${kind}-swatches`);
+  box.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const btn = e.target.closest("button.swatch");
+    if (btn) setNoteColor(kind, btn.dataset.color);
+  });
+  const input = box.querySelector("input");
+  input.addEventListener("input", () => setNoteColor(kind, input.value, false));
+  input.addEventListener("change", () => setNoteColor(kind, input.value));
+}
+
+$("#colors-default").addEventListener("click", (e) => {
+  e.stopPropagation();
+  defaultColors = currentColors();
+  for (const k of Object.keys(defaultColors)) if (!defaultColors[k]) delete defaultColors[k];
+  // This note now just follows the default.
+  noteColors = { ...noteColors };
+  delete noteColors[noteId];
+  browser.storage.local.set({ noteColors, defaultColors });
+  applyColors();
+  showStatus(Object.keys(defaultColors).length ? "Colors set for all notes" : "All notes use the theme colors");
+});
+
+browser.storage.local.get(["noteColors", "defaultColors"]).then((stored) => {
+  noteColors = stored.noteColors || {};
+  defaultColors = stored.defaultColors || {};
+  applyColors();
+});
+browser.storage.onChanged.addListener((changes) => {
+  if (changes.noteColors) noteColors = changes.noteColors.newValue || {};
+  if (changes.defaultColors) defaultColors = changes.defaultColors.newValue || {};
+  if (changes.noteColors || changes.defaultColors) applyColors();
 });
 
 for (const popup of [shareCard, moreMenu]) {
