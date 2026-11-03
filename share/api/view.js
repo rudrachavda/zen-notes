@@ -128,7 +128,7 @@ html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(-
 #body a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 #body ul, #body ol { padding-left: 1.5em; margin: 0 0 0.8em; }
 #body li > p { margin: 0; }
-#body li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.4em; }
+#body li:has(> input[type="checkbox"], > p:first-child > input[type="checkbox"]:first-child) { list-style: none; margin-left: -1.4em; }
 #body input[type="checkbox"] { margin: 0 0.5em 0 0; accent-color: var(--title); }
 #body blockquote { margin: 0 0 0.8em; padding-left: 14px; border-left: 3px solid var(--rule); color: var(--muted); }
 #body code { background: var(--code-bg); border-radius: 5px; padding: 0.1em 0.35em; font: 0.9em ui-monospace, Menlo, monospace; }
