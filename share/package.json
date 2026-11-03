@@ -1,0 +1,16 @@
+{
+  "name": "zen-notes-share",
+  "private": true,
+  "type": "module",
+  "description": "Read-only live web pages for Zen Notes you choose to publish",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.41.0",
+    "marked": "^18.1.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

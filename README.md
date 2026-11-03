@@ -14,6 +14,10 @@ Obsidian (or any editor) can open the same notes.
   `- ` and `**bold**` work as you type. `⌘K` adds a link, `⌘S` saves now.
 - **Images:** paste, drag in or use the image button. They're saved into an
   `attachments/` folder next to the note.
+- **Publish to web** (in the share card): turn it on and the note gets a private
+  read-only link that anyone can open. The page updates a couple of seconds after
+  you stop typing, and turning it off or deleting the note takes it down. Needs
+  the share server below.
 - **Share button** (bottom right): copy as Markdown, open in Obsidian, show in
   Finder, delete (moves the file to the Trash).
 - **Pin it:** a note is a normal tab, so you can pin it or drop it in Essentials
@@ -100,6 +104,26 @@ open during the update, you get a notification asking you to reopen Zen. Allow
 The tab's icon is a plain note unless `zen-mod/notes-sprite.svg` exists. That
 file is Arc's animated Notes icon turned into a 36-frame sprite like Zen's
 other Library icons; it's Arc's artwork, so it isn't in this repo.
+
+## Web sharing (optional)
+
+`share/` is a tiny Vercel app that serves published notes at `/n/<random id>`.
+
+- Notes and their images are stored in Upstash Redis (free plan). Add it from the
+  Vercel Marketplace and connect it to the project; it sets
+  `KV_REST_API_URL`/`KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_*`).
+- Set `ZEN_NOTES_SETUP_CODE` on the project to any code of 8+ characters, deploy
+  `share/`, then in Zen click the Zen Notes toolbar button → **Sharing**, enter
+  the site address and that code. Zen makes a random publish key, the server
+  keeps only its SHA-256, and the code can't be used again.
+- Pages are read-only, hidden from search engines, and render raw HTML in notes
+  as text. Images over 4 MB (and most videos) show a placeholder instead.
+- The helper keeps the server address, key and which notes are published in
+  `~/Library/Application Support/ZenNotes/config.json`.
+
+```bash
+cd share && npm install && npm test
+```
 
 ## Develop
 

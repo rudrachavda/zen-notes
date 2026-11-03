@@ -14,6 +14,7 @@ function connect() {
   port.onMessage.addListener((msg) => {
     if (msg.event) {
       browser.runtime.sendMessage({ type: "event", ...msg }).catch(() => {});
+      if (msg.event === "changed") onNotesChanged(msg);
       return;
     }
     const waiter = pending.get(msg.id);
@@ -125,12 +126,256 @@ async function loadPreview(url) {
   return preview;
 }
 
+// --- Web sharing: a published note gets a read-only page on the share server
+// (see share/ in the repo). The page is updated after every save and removed
+// when the note is unpublished or deleted.
+
+const SYNC_DELAY = 1500;
+const MAX_UPLOAD = 4 * 1024 * 1024; // Vercel functions accept bodies up to 4.5 MB
+let shareState = null; // {url, key, shared: {noteId: {id, files, pendingDelete?}}}
+const syncTimers = new Map();
+const syncErrors = new Map();
+let shareQueue = Promise.resolve(); // one share request at a time keeps config.json writes ordered
+
+function shareTask(fn) {
+  const run = shareQueue.then(fn);
+  shareQueue = run.catch(() => {});
+  return run;
+}
+
+async function getShareState() {
+  if (!shareState) {
+    try {
+      shareState = await call("shareInfo");
+    } catch (err) {
+      if (/Unknown command/.test(err.message)) {
+        throw new Error("Update the Zen Notes helper to publish notes. In Terminal run: cd ~/Downloads/zen-notes/helper && ./install.sh");
+      }
+      throw err;
+    }
+    shareState.shared ||= {};
+  }
+  return shareState;
+}
+
+function newShareId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function shareApi(path, init = {}) {
+  const { url, key } = await getShareState();
+  const res = await fetch(url + path, {
+    ...init,
+    credentials: "omit",
+    headers: { authorization: `Bearer ${key}`, ...(init.headers || {}) },
+  });
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.error).catch(() => res.statusText);
+    throw new Error(`Share server: ${detail || res.status}`);
+  }
+  return res.json();
+}
+
+async function saveEntry(noteId, entry) {
+  await call("shareSet", { noteId, entry });
+  const state = await getShareState();
+  if (entry) state.shared[noteId] = entry;
+  else delete state.shared[noteId];
+}
+
+function shareLink(state, entry) {
+  return entry && !entry.pendingDelete ? `${state.url}/n/${entry.id}` : null;
+}
+
+async function readAttachmentBlob(noteId, src) {
+  const parts = [];
+  let offset = 0;
+  let size = 0;
+  let mime = "";
+  do {
+    const r = await call("readAttachment", { noteId, src, offset });
+    ({ size, mime } = r);
+    if (size > MAX_UPLOAD) return null;
+    const bin = atob(r.data);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    if (!bytes.length) break;
+    parts.push(bytes);
+    offset += bytes.length;
+  } while (offset < size);
+  return new Blob(parts, { type: mime });
+}
+
+async function publishNote(noteId) {
+  const state = await getShareState();
+  if (!state.url || !state.key) throw new Error("Web sharing isn't set up yet. Add the share server in the Zen Notes toolbar popup.");
+  if (noteId.startsWith("path:")) throw new Error("Save the note once before publishing it.");
+  const note = await call("read", { noteId });
+  const old = state.shared[noteId];
+  const entry = old && !old.pendingDelete ? { ...old, files: { ...old.files } } : { id: newShareId(), files: {} };
+
+  // Upload images and videos the web copy doesn't have yet.
+  const srcs = [...note.body.matchAll(/!\[[^\]]*\]\(<?([^)\s>]+)/g)].map((m) => m[1]);
+  for (const raw of srcs) {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) continue; // web images are linked as they are
+    let src = raw;
+    try { src = decodeURI(raw); } catch {}
+    if (entry.files[src]) continue;
+    try {
+      const blob = await readAttachmentBlob(noteId, src);
+      if (!blob) continue; // too large; the page shows a placeholder
+      const name = src.split("/").pop();
+      const { url } = await shareApi(`/api/upload?id=${entry.id}&name=${encodeURIComponent(name)}`, {
+        method: "PUT",
+        headers: { "content-type": blob.type },
+        body: blob,
+      });
+      entry.files[src] = url;
+    } catch (err) {
+      console.warn("Couldn't upload", src, err);
+    }
+  }
+
+  await shareApi(`/api/notes?id=${entry.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title: /^Untitled( \d+)?$/.test(note.title) ? "" : note.title, markdown: note.body, files: entry.files }),
+  });
+  entry.updatedAt = Date.now();
+  await saveEntry(noteId, entry);
+  syncErrors.delete(noteId);
+  return shareLink(state, entry);
+}
+
+async function unpublishNote(noteId) {
+  const state = await getShareState();
+  const entry = state.shared[noteId];
+  if (!entry) return;
+  clearTimeout(syncTimers.get(noteId));
+  try {
+    await shareApi(`/api/notes?id=${entry.id}`, { method: "DELETE" });
+    await saveEntry(noteId, null);
+  } catch (err) {
+    // Offline or server down: remember it and try again later, so the page
+    // never stays up after the note is gone.
+    await saveEntry(noteId, { ...entry, pendingDelete: true });
+    throw err;
+  }
+}
+
+function broadcastShare(noteId) {
+  getShareState().then((state) => {
+    browser.runtime.sendMessage({
+      type: "share-status",
+      noteId,
+      url: shareLink(state, state.shared[noteId]),
+      error: syncErrors.get(noteId) || null,
+    }).catch(() => {});
+  }).catch(() => {});
+}
+
+function scheduleSync(noteId) {
+  clearTimeout(syncTimers.get(noteId));
+  syncTimers.set(noteId, setTimeout(() => {
+    syncTimers.delete(noteId);
+    shareTask(async () => {
+      const state = await getShareState();
+      const entry = state.shared[noteId];
+      if (!entry || entry.pendingDelete) return;
+      try {
+        await publishNote(noteId);
+      } catch (err) {
+        syncErrors.set(noteId, err.message);
+      }
+      broadcastShare(noteId);
+    });
+  }, SYNC_DELAY));
+}
+
+async function retryPendingDeletes() {
+  const state = await getShareState();
+  for (const [noteId, entry] of Object.entries(state.shared)) {
+    if (entry.pendingDelete) await shareTask(() => unpublishNote(noteId)).catch(() => {});
+  }
+}
+
+// Edits from Obsidian update the page too; notes deleted outside Zen are unpublished.
+function onNotesChanged(msg) {
+  if (!shareState) return;
+  for (const note of msg.notes || []) {
+    if (shareState.shared[note.id]) scheduleSync(note.id);
+  }
+  for (const noteId of msg.removed || []) {
+    if (!shareState.shared[noteId]) continue;
+    // A rename keeps the id; only unpublish if the note is really gone.
+    call("read", { noteId }).catch((err) => {
+      if (/not found/i.test(err.message)) shareTask(() => unpublishNote(noteId)).catch(() => {});
+    });
+  }
+}
+
+async function shareStatus(noteId) {
+  const state = await getShareState();
+  return {
+    configured: Boolean(state.url && state.key),
+    url: shareLink(state, state.shared[noteId]),
+    error: syncErrors.get(noteId) || null,
+  };
+}
+
+async function callWithShare(cmd, args) {
+  if (cmd === "delete" && args?.noteId) {
+    const state = await getShareState().catch(() => null);
+    if (state?.shared[args.noteId]) await shareTask(() => unpublishNote(args.noteId)).catch(() => {});
+  }
+  if (cmd === "setShareServer") {
+    shareState = null;
+    return call("shareServer", args);
+  }
+  if (cmd === "setupShare") return setupShare(args.url, args.code);
+  return call(cmd, args);
+}
+
+// Connects this Mac to a new share server: makes a random publish key, registers
+// its hash with the server's one-time setup code, and keeps the key in the helper.
+async function setupShare(url, code) {
+  url = url.trim().replace(/\/+$/, "");
+  const key = newShareId() + newShareId();
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  const keyHash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const res = await fetch(`${url}/api/claim`, {
+    method: "POST",
+    credentials: "omit",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code, keyHash }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.error).catch(() => res.statusText);
+    throw new Error(detail || `Setup failed (${res.status})`);
+  }
+  shareState = null;
+  await call("shareServer", { url, key });
+  return true;
+}
+
+setTimeout(() => retryPendingDeletes().catch(() => {}), 5000);
+
 browser.runtime.onMessage.addListener((msg) => {
   switch (msg.type) {
+    case "share-get":
+      return shareStatus(msg.noteId);
+    case "share-publish":
+      return shareTask(() => publishNote(msg.noteId)).then((url) => ({ url }));
+    case "share-unpublish":
+      return shareTask(() => unpublishNote(msg.noteId)).then(() => true);
+    case "share-sync":
+      getShareState().then((s) => s.shared[msg.noteId] && scheduleSync(msg.noteId)).catch(() => {});
+      return;
     case "preview":
       return fetchPreview(msg.url);
     case "call":
-      return call(msg.cmd, msg.args);
+      return callWithShare(msg.cmd, msg.args);
     case "open":
       return openNote(msg.noteId, msg.options).then(() => true);
     case "new":

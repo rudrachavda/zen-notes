@@ -5,3 +5,4 @@ __pycache__/
 signed/
 web-ext-artifacts/
 zen-mod/notes-sprite.svg
+.vercel/

@@ -84,7 +84,7 @@ footer {
   color: var(--muted);
 }
 #folder { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#folder:hover, #change:hover { color: var(--ink); }
-#change, #all { color: var(--accent); font-weight: 800; white-space: nowrap; }
+#folder:hover, #change:hover, #sharing:hover { color: var(--ink); }
+#change, #all, #sharing { color: var(--accent); font-weight: 800; white-space: nowrap; }
 #all { margin-left: auto; }
 

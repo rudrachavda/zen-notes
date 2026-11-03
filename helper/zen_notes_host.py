@@ -224,7 +224,7 @@ def note_summary(root, path, mtime, note_id):
 
 # --- Commands -----------------------------------------------------------------
 
-HELPER_VERSION = 3  # the extension asks for at least this; bump with protocol changes
+HELPER_VERSION = 4  # the extension asks for at least this; bump with protocol changes
 
 
 def cmd_config(_):
@@ -354,8 +354,43 @@ def cmd_reveal(msg):
     return True
 
 
+# --- Web sharing ----------------------------------------------------------------
+# config.json keeps the share server ("share": {"url", "key"}) and which notes are
+# published ("shared": {note id: {"id": share id, "files": {src: url}}}), so the
+# links survive reinstalling the extension.
+
+def cmd_share_info(_):
+    cfg = load_config()
+    server = cfg.get("share") or {}
+    return {"url": server.get("url", ""), "key": server.get("key", ""), "shared": cfg.get("shared", {})}
+
+
+def cmd_share_server(msg):
+    cfg = load_config()
+    if msg.get("url") and msg.get("key"):
+        cfg["share"] = {"url": msg["url"].rstrip("/"), "key": msg["key"]}
+    else:
+        cfg.pop("share", None)
+    save_config(cfg)
+    return True
+
+
+def cmd_share_set(msg):
+    cfg = load_config()
+    shared = cfg.setdefault("shared", {})
+    if msg.get("entry"):
+        shared[msg["noteId"]] = msg["entry"]
+    else:
+        shared.pop(msg["noteId"], None)
+    save_config(cfg)
+    return True
+
+
 COMMANDS = {
     "config": cmd_config,
+    "shareInfo": cmd_share_info,
+    "shareServer": cmd_share_server,
+    "shareSet": cmd_share_set,
     "setFolder": cmd_set_folder,
     "list": cmd_list,
     "read": cmd_read,

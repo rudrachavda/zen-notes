@@ -465,6 +465,7 @@ function save() {
       notePath = result.path;
       fileTitle = result.title;
       showStatus("Saved");
+      if (publishedUrl) browser.runtime.sendMessage({ type: "share-sync", noteId }).catch(() => {});
     })
     .catch((err) => {
       dirty = true;
@@ -1086,8 +1087,77 @@ function togglePopup(popup) {
   popup.hidden = !open;
   if (open && popup === shareCard) {
     $("#share-path").textContent = notePath.replace(/^\/Users\/[^/]+/, "~");
+    refreshPublish();
   }
 }
+
+// --- Publish to web (the share server keeps a read-only copy that follows each save)
+
+let publishedUrl = null;
+const publishToggle = $("#publish-toggle");
+const publishHint = $("#publish-hint");
+
+function showPublish({ url = null, error = null, configured = true, busy = false } = {}) {
+  publishedUrl = url;
+  publishToggle.setAttribute("aria-checked", String(Boolean(url)));
+  publishToggle.disabled = busy || (!configured && !url);
+  $("#publish-link").hidden = !url;
+  $("#publish-url").value = url || "";
+  $("#share-button").classList.toggle("live", Boolean(url));
+  $("#publish-sub").textContent = url
+    ? "Live. Anyone with the link can view it, and it updates as you type."
+    : "Anyone with the link can view it, and it updates as you type.";
+  const hint = error || (!configured && !url ? "Web sharing isn't set up yet. Add the share server in the Zen Notes toolbar popup." : "");
+  publishHint.textContent = hint;
+  publishHint.hidden = !hint;
+  publishHint.classList.toggle("error", Boolean(error));
+}
+
+async function refreshPublish() {
+  if (!noteId) return;
+  try {
+    showPublish(await browser.runtime.sendMessage({ type: "share-get", noteId }));
+  } catch (err) {
+    showPublish({ error: err.message, configured: false });
+  }
+}
+
+publishToggle.addEventListener("click", async (e) => {
+  e.stopPropagation();
+  const wasPublished = Boolean(publishedUrl);
+  if (wasPublished && !window.confirm("Stop sharing this note? The link will stop working.")) return;
+  showPublish({ url: publishedUrl, busy: true });
+  try {
+    if (wasPublished) {
+      await browser.runtime.sendMessage({ type: "share-unpublish", noteId });
+      showPublish({ url: null });
+      showStatus("Unpublished");
+    } else {
+      if (noteId.startsWith("path:")) dirty = true; // the first save gives the note a stable id
+      await save();
+      const { url } = await browser.runtime.sendMessage({ type: "share-publish", noteId });
+      showPublish({ url });
+      await navigator.clipboard.writeText(url).catch(() => {});
+      showStatus("Published, link copied");
+    }
+  } catch (err) {
+    await refreshPublish();
+    showPublish({ url: publishedUrl, error: err.message });
+  }
+});
+
+$("#publish-copy").addEventListener("click", async (e) => {
+  e.stopPropagation();
+  if (!publishedUrl) return;
+  await navigator.clipboard.writeText(publishedUrl);
+  showStatus("Link copied");
+});
+
+browser.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "share-status" && msg.noteId === noteId) {
+    showPublish({ url: msg.url, error: msg.error && `Couldn't update the web copy: ${msg.error}` });
+  }
+});
 
 $("#share-button").addEventListener("click", (e) => {
   e.stopPropagation();
@@ -1120,7 +1190,10 @@ async function runAction(action) {
     } else if (action === "reveal") {
       await call("reveal", { noteId });
     } else if (action === "delete") {
-      if (!window.confirm("Move this note to the Trash?")) return;
+      const ask = publishedUrl
+        ? "Move this note to the Trash? Its web link will stop working too."
+        : "Move this note to the Trash?";
+      if (!window.confirm(ask)) return;
       deleting = true;
       await call("delete", { noteId });
       const tab = await browser.tabs.getCurrent();
@@ -1191,14 +1264,14 @@ function showError(err) {
   showBanner(err.message || String(err));
 }
 
-load().catch(showError);
+load().then(refreshPublish).catch(showError);
 
 // Large images and videos need the chunked reads added in helper version 3.
-const HELPER_VERSION = 3;
+const HELPER_VERSION = 4;
 call("config")
   .then((c) => {
     if ((c.version || 0) < HELPER_VERSION) {
-      showBanner("The Zen Notes helper is out of date, so large images won't load. In Terminal run: cd ~/Downloads/zen-notes/helper && ./install.sh");
+      showBanner("The Zen Notes helper is out of date, so large images and web sharing won't work. In Terminal run: cd ~/Downloads/zen-notes/helper && ./install.sh");
     }
   })
   .catch(() => {});

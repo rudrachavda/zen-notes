@@ -20,7 +20,17 @@ chmod +x "$HOST_PATH"
 
 if [ $# -ge 1 ]; then
   mkdir -p "$1"
-  printf '{\n  "folder": "%s"\n}\n' "$1" > "$APP_DIR/config.json"
+  # Change only the folder; keep other settings such as web sharing.
+  python3 - "$APP_DIR/config.json" "$1" <<'PY'
+import json, sys
+path, folder = sys.argv[1], sys.argv[2]
+try:
+    cfg = json.load(open(path))
+except (OSError, ValueError):
+    cfg = {}
+cfg["folder"] = folder
+json.dump(cfg, open(path, "w"), indent=2)
+PY
 fi
 
 MANIFEST=$(cat <<EOF

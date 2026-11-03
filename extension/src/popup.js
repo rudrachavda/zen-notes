@@ -73,7 +73,44 @@ $("#change").addEventListener("click", async () => {
   const folder = window.prompt("Notes folder (for example an Obsidian vault folder)", $("#folder").textContent);
   if (!folder) return;
   await call("setFolder", { folder });
-  refresh();
+  const DEFAULT_SHARE_SERVER = "https://zen-notes-share.vercel.app";
+
+$("#sharing").addEventListener("click", async () => {
+  const current = await call("shareInfo").catch(() => ({}));
+  const url = window.prompt(
+    current.url ? `Web sharing is on (${current.url}). Enter a new server address to change it, or clear it to turn sharing off.` : "Share server address",
+    current.url || DEFAULT_SHARE_SERVER,
+  );
+  if (url === null || url.trim() === current.url) return;
+  try {
+    if (!url.trim()) {
+      await call("setShareServer", {});
+      return;
+    }
+    const code = window.prompt("Setup code for this server (used once)");
+    if (!code) return;
+    await call("setupShare", { url: url.trim(), code: code.trim() });
+    window.alert("Web sharing is set up. Use the share button on any note to publish it.");
+  } catch (err) {
+    window.alert(`Couldn't set up web sharing: ${err.message}`);
+  }
+});
+
+refresh();
+});
+
+$("#sharing").addEventListener("click", async () => {
+  const current = await call("shareInfo").catch(() => ({}));
+  const url = window.prompt("Share server address (leave empty to turn web sharing off)", current.url || "https://");
+  if (url === null) return;
+  const clean = url.trim().replace(/\/+$/, "");
+  if (!clean || clean === "https:") {
+    await call("setShareServer", {});
+    return;
+  }
+  const key = window.prompt("Publish key (kept only on this Mac)", current.key || "");
+  if (!key) return;
+  await call("setShareServer", { url: clean, key: key.trim() });
 });
 
 refresh();

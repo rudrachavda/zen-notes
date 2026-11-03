@@ -68,6 +68,21 @@
     <button id="share-button" title="Share" data-icon="share"></button>
     <div id="share-card" class="card" hidden>
       <h2>Share Note</h2>
+      <div class="publish">
+        <div class="publish-row">
+          <div class="publish-text">
+            <strong>Publish to web</strong>
+            <span id="publish-sub">Anyone with the link can view it, and it updates as you type.</span>
+          </div>
+          <button id="publish-toggle" class="switch" role="switch" aria-checked="false" aria-label="Publish to web"></button>
+        </div>
+        <div id="publish-link" class="link-row" hidden>
+          <input id="publish-url" readonly aria-label="Public link">
+          <button id="publish-copy" class="primary">Copy</button>
+        </div>
+        <div id="publish-hint" class="hint" hidden></div>
+      </div>
+      <hr>
       <p>Notes are saved as Markdown files on your Mac.</p>
       <div id="share-path" class="path"></div>
       <div class="card-actions">
