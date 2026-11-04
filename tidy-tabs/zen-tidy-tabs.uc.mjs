@@ -271,7 +271,7 @@ function css(broomUrl) {
   -moz-context-properties: fill, fill-opacity;
   fill: currentColor;
   padding-inline: 6px 2px !important;
-  & .toolbarbutton-icon { width: 14px; height: 14px; }
+  & .toolbarbutton-icon { width: 12px; height: 12px; }
   & .toolbarbutton-text { display: none !important; }
   &[disabled] { opacity: 0.4; }
 }
