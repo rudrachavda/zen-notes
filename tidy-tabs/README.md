@@ -10,11 +10,12 @@ Other.
   start a new one. A link opened from a grouped tab stays in that tab's group.
 - A tab belongs to the header above it, so you can drag a tab under another
   header to move it to that group.
-- Double-click a header to rename it. Hover a header for **×**, which closes every
-  tab in that group. Right-click a header to **Rename**, **Ungroup**, or **Close
-  Tabs in Group**.
-- Right-click the broom for **Undo Tidy**, **Remove All Headers**, and **Set
-  Claude API Key…**.
+- Double-click a header to rename it. Hover a header for two buttons, like Arc:
+  the **folder** turns that group into a Zen folder (pinned, named after the
+  header), and **×** closes every tab in it. Right-click a header to **Rename**,
+  **Move to Folder**, **Ungroup**, or **Close Tabs in Group**.
+- Right-click the broom for **Undo Tidy**, **Move All Groups to Folders**,
+  **Remove All Headers**, and **Set Claude API Key…**.
 - Groups are saved with your session, so they're still there after a restart.
 - Only unpinned tabs in the current space are touched. Pinned tabs, folders and
   Essentials are left alone.

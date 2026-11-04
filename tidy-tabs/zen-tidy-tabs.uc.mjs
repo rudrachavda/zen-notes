@@ -335,24 +335,30 @@ function css(broomUrl) {
     margin-inline-start: -4px;
     outline: none;
   }
-  & .zen-tidy-close {
+  & .zen-tidy-btn {
     appearance: none;
     border: none;
     background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 13px;
-    line-height: 1;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 4px;
-    padding: 0;
+    padding: 3px;
+    margin-inline-start: 2px;
     opacity: 0;
     cursor: default;
     transition: opacity 0.12s;
+    color: inherit;
+    & img {
+      display: block;
+      width: 14px;
+      height: 14px;
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+      pointer-events: none;
+    }
     &:hover { background: light-dark(rgba(0,0,0,.07), rgba(255,255,255,.1)); color: light-dark(rgba(0,0,0,.75), rgba(255,255,255,.85)); }
   }
-  &:hover .zen-tidy-close { opacity: 1; }
+  &:hover .zen-tidy-btn { opacity: 1; }
 }
 .zen-tidy-note {
   margin: 4px 8px 6px;
@@ -704,17 +710,26 @@ class TidyTabs {
     h.setAttribute("context", "zen-tidy-header-menu");
     const label = document.createElementNS(XHTML, "span");
     label.className = "zen-tidy-label";
-    const close = document.createElementNS(XHTML, "button");
-    close.className = "zen-tidy-close";
-    close.textContent = "×";
-    close.title = "Close tabs in this group";
-    close.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.closeGroup(gid);
-    });
+    // Hover buttons, like Arc's: turn the group into a Zen folder, or close its tabs.
+    const button = (icon, title, fn) => {
+      const b = document.createElementNS(XHTML, "button");
+      b.className = "zen-tidy-btn";
+      b.title = title;
+      const img = document.createElementNS(XHTML, "img");
+      img.src = `chrome://browser/skin/zen-icons/${icon}.svg`;
+      img.alt = "";
+      b.append(img);
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fn();
+      });
+      return b;
+    };
+    const folder = button("folder", "Move to a Zen folder", () => this.makeFolder(gid));
+    const close = button("close", "Close tabs in this group", () => this.closeGroup(gid));
     for (const ev of ["mousedown", "dragstart"]) h.addEventListener(ev, (e) => e.stopPropagation());
     label.addEventListener("dblclick", () => this.rename(gid));
-    h.append(label, close);
+    h.append(label, folder, close);
     return h;
   }
 
@@ -910,6 +925,31 @@ class TidyTabs {
     this.#render();
   }
 
+  // Arc's "convert to folder": the group's tabs become a pinned Zen folder named
+  // after the header, at the bottom of the space's pinned section.
+  makeFolder(gid) {
+    const group = this.groups.get(gid);
+    if (!group || !window.gZenFolders?.createFolder) return;
+    const tabs = gBrowser.tabs.filter((t) => t.getAttribute("zen-tidy-group") === gid && !t.pinned);
+    if (!tabs.length) return;
+    for (const t of tabs) this.#setGid(t, null);
+    this.groups.delete(gid);
+    this.#saveGroups();
+    try {
+      gZenFolders.createFolder(tabs, { label: group.name, workspaceId: group.ws });
+    } catch (e) {
+      console.error("Tidy Tabs: couldn't make a folder", e);
+    }
+    this.schedule();
+  }
+
+  makeAllFolders(ws = gZenWorkspaces.activeWorkspaceElement) {
+    const container = ws?.tabsContainer;
+    if (!container) return;
+    const gids = [...new Set(this.#units(container).map((u) => this.#gidOf(u)).filter(Boolean))];
+    for (const gid of gids) this.makeFolder(gid);
+  }
+
   closeGroup(gid) {
     const tabs = gBrowser.tabs.filter((t) => t.getAttribute("zen-tidy-group") === gid && !t.pinned);
     if (tabs.length) gBrowser.removeTabs(tabs);
@@ -998,6 +1038,7 @@ class TidyTabs {
     });
     header.append(
       item("Rename Group…", () => this.#menuTarget && this.rename(this.#menuTarget)),
+      item("Move to Folder", () => this.#menuTarget && this.makeFolder(this.#menuTarget)),
       item("Ungroup Tabs", () => this.#menuTarget && this.ungroup(this.#menuTarget)),
       document.createXULElement("menuseparator"),
       item("Close Tabs in Group", () => this.#menuTarget && this.closeGroup(this.#menuTarget))
@@ -1015,6 +1056,7 @@ class TidyTabs {
     broom.append(
       item("Tidy Tabs", () => this.tidy(menuWs)),
       undoItem,
+      item("Move All Groups to Folders", () => this.makeAllFolders(menuWs)),
       item("Remove All Headers", () => this.ungroupAll(menuWs)),
       document.createXULElement("menuseparator"),
       item("Set Claude API Key…", () => this.promptForKey())
