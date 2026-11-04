@@ -48,8 +48,17 @@ foreign_loader() {
 profile_ok() {
   [ -z "$PROFILE" ] && return 0
   [ -f "$PROFILE/chrome/utils/boot.sys.mjs" ] &&
-    cmp -s "$PROFILE/chrome/JS/zen-notes-library.uc.mjs" "$PAYLOAD/zen-notes-library.uc.mjs" &&
-    [ -f "$PROFILE/chrome/resources/zen-notes/note-icon.svg" ]
+    [ -f "$PROFILE/chrome/resources/zen-notes/note-icon.svg" ] &&
+    scripts_ok
+}
+# Every script in the payload (Zen Notes Library, and Tidy Tabs if installed).
+scripts_ok() {
+  local f
+  for f in "$PAYLOAD/"*.uc.mjs; do
+    [ -e "$f" ] || continue
+    cmp -s "$PROFILE/chrome/JS/$(basename "$f")" "$f" || return 1
+  done
+  return 0
 }
 
 if [ "$MODE" = "--check" ]; then
@@ -99,7 +108,7 @@ fi
 if [ -n "$PROFILE" ] && ! profile_ok; then
   mkdir -p "$PROFILE/chrome/utils" "$PROFILE/chrome/JS" "$PROFILE/chrome/resources/zen-notes"
   [ -f "$PROFILE/chrome/utils/boot.sys.mjs" ] || cp "$PAYLOAD/fx-autoconfig/profile/chrome/utils/"* "$PROFILE/chrome/utils/"
-  cp "$PAYLOAD/zen-notes-library.uc.mjs" "$PROFILE/chrome/JS/"
+  cp "$PAYLOAD/"*.uc.mjs "$PROFILE/chrome/JS/"
   cp "$PAYLOAD/"*.svg "$PROFILE/chrome/resources/zen-notes/" 2>/dev/null
   rm -rf "$PROFILE/chrome/zen-notes"
   rm -rf "$HOME/Library/Caches/zen/Profiles/$(basename "$PROFILE")/startupCache"

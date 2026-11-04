@@ -5,7 +5,8 @@
   "scripts": {
     "build": "node build.mjs --minify",
     "dev": "node build.mjs",
-    "package": "npm run build && cd extension && zip -qr ../zen-notes.xpi manifest.json background.js shortcut.js note.html popup.html library.html icons dist"
+    "package": "npm run build && cd extension && zip -qr ../zen-notes.xpi manifest.json background.js shortcut.js note.html popup.html library.html icons dist",
+    "test": "node --test tidy-tabs/test/core.test.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.2"

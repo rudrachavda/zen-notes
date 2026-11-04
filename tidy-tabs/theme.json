@@ -1,0 +1,11 @@
+{
+  "id": "zen-tidy-tabs",
+  "name": "Tidy Tabs",
+  "description": "Arc-style Tidy Tabs for Zen: a broom on the divider sorts your unpinned tabs under named headers using Claude (or Ollama).",
+  "homepage": "https://github.com/rudrachavda/zen-notes/tree/main/tidy-tabs",
+  "js": true,
+  "author": "Rudra Chavda",
+  "version": "0.1.0",
+  "tags": ["tabs", "ai", "arc", "JavaScript"],
+  "fork": ["zen"]
+}
