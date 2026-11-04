@@ -27,14 +27,20 @@ done
 RES="$APP/Contents/Resources"
 
 ZEN_DIR="$HOME/Library/Application Support/zen"
-PROFILE_REL=$(awk -F= '/^\[Install/{inst=1} inst && /^Default=/{print $2; exit}' "$ZEN_DIR/profiles.ini" 2>/dev/null || true)
-if [ -z "$PROFILE_REL" ]; then
-  PROFILE_REL=$(awk -F= '/^Path=/{p=$2} /^Default=1/{print p; exit}' "$ZEN_DIR/profiles.ini" 2>/dev/null || true)
-fi
-PROFILE=""
-if [ -n "$PROFILE_REL" ]; then
-  case "$PROFILE_REL" in /*) PROFILE="$PROFILE_REL" ;; *) PROFILE="$ZEN_DIR/$PROFILE_REL" ;; esac
-fi
+# The profile Zen really uses: of the profiles in profiles.ini, the one whose
+# prefs.js was written most recently. (The [Install] default can point at a
+# stale profile on Macs that have had more than one Zen install.)
+newest_profile() {
+  local best="" best_t=0 rel dir t
+  while IFS= read -r rel; do
+    case "$rel" in /*) dir="$rel" ;; *) dir="$ZEN_DIR/$rel" ;; esac
+    [ -f "$dir/prefs.js" ] || continue
+    t=$(stat -c %Y "$dir/prefs.js" 2>/dev/null || stat -f %m "$dir/prefs.js" 2>/dev/null || echo 0)
+    if [ "$t" -gt "$best_t" ]; then best="$dir"; best_t=$t; fi
+  done < <(awk -F= '/^Path=/{print substr($0, 6)}' "$ZEN_DIR/profiles.ini" 2>/dev/null)
+  echo "$best"
+}
+PROFILE="$(newest_profile)"
 
 program_ok() {
   cmp -s "$RES/config.js" "$PAYLOAD/fx-autoconfig/program/config.js" &&
