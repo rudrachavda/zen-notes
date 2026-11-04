@@ -442,9 +442,14 @@ class TidyTabs {
   async #loadStyles() {
     let broom = svgUrl(BROOM_SVG);
     try {
-      // Optional: your own icon at <profile>/chrome/resources/zen-tidy-tabs/broom.svg
-      const path = PathUtils.join(PathUtils.profileDir, ...RESOURCE_DIR, "broom.svg");
-      if (await IOUtils.exists(path)) broom = `url("${PathUtils.toFileURI(path)}")`;
+      // Optional: your own icon at <profile>/chrome/resources/zen-tidy-tabs/broom.svg (or .png)
+      for (const name of ["broom.svg", "broom.png"]) {
+        const path = PathUtils.join(PathUtils.profileDir, ...RESOURCE_DIR, name);
+        if (await IOUtils.exists(path)) {
+          broom = `url("${PathUtils.toFileURI(path)}")`;
+          break;
+        }
+      }
     } catch {}
     const uri = Services.io.newURI(`data:text/css;charset=utf-8,${encodeURIComponent(css(broom))}`);
     window.windowUtils.loadSheet(uri, window.windowUtils.AUTHOR_SHEET);

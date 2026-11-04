@@ -62,7 +62,7 @@ These are in `about:config` (or in the Sine settings, if you install it with Sin
 ## Your own broom icon
 
 The broom is drawn for this mod. To use a different icon, put it at
-`<your Zen profile>/chrome/resources/zen-tidy-tabs/broom.svg` and restart Zen.
+`<your Zen profile>/chrome/resources/zen-tidy-tabs/broom.svg` (or `broom.png`) and restart Zen. The installer creates that folder.
 For the icon to follow the sidebar's colour, use `stroke="context-fill"` or
 `fill="context-fill"` in the SVG.
 
