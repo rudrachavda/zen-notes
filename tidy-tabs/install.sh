@@ -3,6 +3,7 @@
 # Library tab (zen-mod/install.sh), which also puts it back after Zen updates.
 #
 #   ./install.sh              install or update (quit Zen first)
+#   ./install.sh --ollama     install and sort tabs with Ollama on this Mac (no API key)
 #   ./install.sh --uninstall  remove Tidy Tabs
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -37,5 +38,14 @@ cp "$HERE/$SCRIPT" "$PAYLOAD/"          # kept here so the repair app restores i
 cp "$HERE/$SCRIPT" "$PROFILE/chrome/JS/"
 rm -rf "$HOME/Library/Caches/zen/Profiles/$(basename "$PROFILE")/startupCache"
 
+if [ "${1:-}" = "--ollama" ]; then
+  USERJS="$PROFILE/user.js"
+  touch "$USERJS"
+  grep -v 'zen.tidy-tabs.provider' "$USERJS" > "$USERJS.tmp" || true
+  echo 'user_pref("zen.tidy-tabs.provider", "ollama");' >> "$USERJS.tmp"
+  mv "$USERJS.tmp" "$USERJS"
+  echo "Tidy Tabs will use Ollama (model: llama3.1). Make sure Ollama is running."
+fi
+
 echo "Done. Open Zen: the broom is next to \"Clear\" above your tabs (or press ⌘⌥T)."
-echo "The first time you use it, it asks for a Claude API key."
+[ "${1:-}" = "--ollama" ] || echo "The first time you use it, it asks for a Claude API key."

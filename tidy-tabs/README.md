@@ -27,6 +27,9 @@ Quit Zen, then run:
 ./tidy-tabs/install.sh
 ```
 
+To sort tabs with Ollama on your Mac instead of Claude, run `./tidy-tabs/install.sh --ollama`
+(after installing [Ollama](https://ollama.com) and running `ollama pull llama3.1`).
+
 This uses the same script loader as the Zen Notes Library tab. If that isn't set
 up yet, the installer runs `zen-mod/install.sh` first. The repair app that comes
 with it puts Tidy Tabs back after Zen updates.
