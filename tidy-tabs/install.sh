@@ -48,6 +48,7 @@ fi
 mkdir -p "$PROFILE/chrome/JS" "$PROFILE/chrome/resources/zen-tidy-tabs"
 cp "$HERE/$SCRIPT" "$PAYLOAD/"          # kept here so the repair app restores it after Zen updates
 cp "$HERE/$SCRIPT" "$PROFILE/chrome/JS/"
+cp "$HERE/default-broom.svg" "$PROFILE/chrome/resources/zen-tidy-tabs/"
 rm -rf "$HOME/Library/Caches/zen/Profiles/$(basename "$PROFILE")/startupCache"
 
 if [ "${1:-}" = "--ollama" ]; then

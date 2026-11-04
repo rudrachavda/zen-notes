@@ -250,8 +250,11 @@ const WIN_KEY = "zenTidyGroups";
 const RESOURCE_DIR = ["chrome", "resources", "zen-tidy-tabs"];
 const XHTML = "http://www.w3.org/1999/xhtml";
 
-// An original broom drawn for this mod (stroke follows the sidebar's text colour).
-const BROOM_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="context-fill" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+// An original broom drawn for this mod. install.sh puts default-broom.svg in
+// <profile>/chrome/resources/zen-tidy-tabs/, loaded through chrome:// because
+// Firefox only applies context-fill (the sidebar's text colour) to chrome://
+// images. This inline copy, in a fixed grey, is only a fallback.
+const BROOM_FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="#8e8e93" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
 <path d="M14.25 1.75 9.1 6.9"/>
 <path d="M7.6 6.1 9.9 8.4"/>
 <path d="M7.4 6.5c-2.2 1.4-4 3.9-4.9 7.75 3.85-.9 6.35-2.7 7.75-4.9"/>
@@ -440,17 +443,17 @@ class TidyTabs {
   }
 
   async #loadStyles() {
-    let broom = svgUrl(BROOM_SVG);
-    try {
-      // Optional: your own icon at <profile>/chrome/resources/zen-tidy-tabs/broom.svg (or .png)
-      for (const name of ["broom.svg", "broom.png"]) {
+    let broom = svgUrl(BROOM_FALLBACK_SVG);
+    // Your own icon (broom.svg / broom.png) wins over the bundled one.
+    for (const name of ["broom.svg", "broom.png", "default-broom.svg"]) {
+      try {
         const path = PathUtils.join(PathUtils.profileDir, ...RESOURCE_DIR, name);
         if (await IOUtils.exists(path)) {
-          broom = `url("${PathUtils.toFileURI(path)}")`;
+          broom = `url("chrome://userchrome/content/zen-tidy-tabs/${name}")`;
           break;
         }
-      }
-    } catch {}
+      } catch {}
+    }
     const uri = Services.io.newURI(`data:text/css;charset=utf-8,${encodeURIComponent(css(broom))}`);
     window.windowUtils.loadSheet(uri, window.windowUtils.AUTHOR_SHEET);
   }
