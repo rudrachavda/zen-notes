@@ -281,6 +281,18 @@ const BROOM_FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 // One period of the "thinking" wave on the divider.
 const WAVE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6"><path d="M0 3 C2 0.6 4 0.6 6 3 S10 5.4 12 3" fill="none" stroke="black" stroke-width="1.3"/></svg>`;
 
+// Wave timing: one wave period, the shortest the wave is shown, and how long it
+// takes to swell in / flatten out. The wave always ends on a whole period so it
+// never stops mid-ripple.
+const WAVE_MS = 700;
+const MIN_WAVE_MS = 1400;
+const SETTLE_MS = 220;
+
+export function waveHold(elapsedMs, minMs = MIN_WAVE_MS, periodMs = WAVE_MS) {
+  const target = Math.ceil(Math.max(elapsedMs, minMs) / periodMs) * periodMs;
+  return Math.max(0, target - elapsedMs);
+}
+
 const svgUrl = (svg) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 
 function css(broomUrl) {
@@ -311,12 +323,18 @@ function css(broomUrl) {
     height: 6px !important;
     background: light-dark(rgba(0,0,0,.35), rgba(255,255,255,.4)) !important;
     mask: ${svgUrl(WAVE_SVG)} 0 50% / 12px 6px repeat-x;
-    animation: zen-tidy-wave 0.7s linear infinite;
+    /* The straight line swells into the wave, and flattens back when done. */
+    animation: zen-tidy-wave ${WAVE_MS}ms linear infinite, zen-tidy-swell ${SETTLE_MS}ms ease-out;
+    transition: transform ${SETTLE_MS}ms ease-in;
   }
+}
+.zen-workspace-pinned-tabs-section[zen-tidy-busy][zen-tidy-settle] .pinned-tabs-container-separator {
+  & toolbarseparator { transform: scaleY(0.17); }
   & toolbarbutton { background-image: none !important; }
   & .zen-tidy-broom .toolbarbutton-icon { opacity: 1 !important; }
 }
 @keyframes zen-tidy-wave { to { mask-position: -12px 50%; } }
+@keyframes zen-tidy-swell { from { transform: scaleY(0.17); } }
 @media (prefers-reduced-motion: reduce) {
   .zen-workspace-pinned-tabs-section[zen-tidy-busy] .pinned-tabs-container-separator toolbarseparator { animation-duration: 3s; }
 }
@@ -787,16 +805,25 @@ class TidyTabs {
     const ids = described.map((d) => d.id);
 
     this.#setBusy(ws, true);
+    const started = performance.now();
     let result;
+    let error = null;
     try {
       result = await this.#ask(described, existingNames);
     } catch (e) {
-      console.error("Tidy Tabs:", e);
-      const secs = this.pref("timeout-seconds", 45);
-      this.#note(ws, e.name === "AbortError" ? `Tidying took longer than ${secs}s, so I stopped.` : `Couldn't tidy: ${e.message}`);
-      return;
+      error = e;
+    }
+    try {
+      // Let the wave finish cleanly before anything moves.
+      await this.#endWave(ws, started);
     } finally {
       this.#setBusy(ws, false);
+    }
+    if (error) {
+      console.error("Tidy Tabs:", error);
+      const secs = this.pref("timeout-seconds", 45);
+      this.#note(ws, error.name === "AbortError" ? `Tidying took longer than ${secs}s, so I stopped.` : `Couldn't tidy: ${error.message}`);
+      return;
     }
 
     // Tabs may have changed while we waited.
@@ -1001,6 +1028,17 @@ class TidyTabs {
   }
 
   // --- UI bits -------------------------------------------------------------
+  // Keeps the wave up for at least MIN_WAVE_MS, ends it on a whole period, then
+  // flattens it back into the line.
+  async #endWave(ws, started) {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!reduced) await sleep(waveHold(performance.now() - started));
+    const pinned = ws.pinnedTabsContainer;
+    pinned?.setAttribute("zen-tidy-settle", "true");
+    await sleep(reduced ? 0 : SETTLE_MS);
+  }
+
   #setBusy(ws, busy) {
     const pinned = ws.pinnedTabsContainer;
     const btn = pinned?.querySelector(".zen-tidy-broom");
@@ -1011,6 +1049,7 @@ class TidyTabs {
     } else {
       this.#busy.delete(ws.id);
       pinned?.removeAttribute("zen-tidy-busy");
+      pinned?.removeAttribute("zen-tidy-settle");
       btn?.removeAttribute("disabled");
     }
   }

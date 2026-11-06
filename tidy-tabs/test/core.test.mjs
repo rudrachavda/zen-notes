@@ -107,3 +107,10 @@ test("withTimeout rejects at the deadline even if the request ignores abort", as
   assert.ok(aborted);
   assert.equal(await withTimeout(async () => "ok", 1000), "ok");
 });
+
+test("waveHold keeps the wave for a minimum and ends on a whole period", async () => {
+  const { waveHold } = await import("../zen-tidy-tabs.uc.mjs");
+  assert.equal(waveHold(100, 1400, 700), 1300);   // fast answer: hold to the minimum
+  assert.equal(waveHold(1500, 1400, 700), 600);   // finish the current ripple (2100)
+  assert.equal(waveHold(2100, 1400, 700), 0);
+});
