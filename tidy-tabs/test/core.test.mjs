@@ -96,3 +96,14 @@ test("askOllama posts to /api/chat with the schema", async () => {
   assert.equal(sent.url, "http://localhost:11434/api/chat");
   assert.equal(sent.body.format.type, "object");
 });
+
+test("withTimeout rejects at the deadline even if the request ignores abort", async () => {
+  const { withTimeout } = await import("../zen-tidy-tabs.uc.mjs");
+  const start = Date.now();
+  await assert.rejects(withTimeout(() => new Promise(() => {}), 50), (e) => e.name === "AbortError");
+  assert.ok(Date.now() - start < 1000);
+  let aborted = false;
+  await assert.rejects(withTimeout((signal) => new Promise(() => signal.addEventListener("abort", () => { aborted = true; })), 20));
+  assert.ok(aborted);
+  assert.equal(await withTimeout(async () => "ok", 1000), "ok");
+});

@@ -240,6 +240,23 @@ export async function askOllama({ endpoint, model, tabs, existing, signal, fetch
   return JSON.parse(body?.message?.content || "{}");
 }
 
+// Runs request(signal) but gives up after `ms`: the request is aborted, and the
+// returned promise rejects with an AbortError even if the request ignores the
+// signal, so the "thinking" wave can never run forever.
+export function withTimeout(request, ms) {
+  const controller = new AbortController();
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      const err = new Error("Timed out");
+      err.name = "AbortError";
+      reject(err);
+    }, ms);
+  });
+  return Promise.race([Promise.resolve().then(() => request(controller.signal)), deadline]).finally(() => clearTimeout(timer));
+}
+
 // ---------------------------------------------------------------------------
 // Browser side
 // ---------------------------------------------------------------------------
@@ -775,11 +792,12 @@ class TidyTabs {
       result = await this.#ask(described, existingNames);
     } catch (e) {
       console.error("Tidy Tabs:", e);
-      this.#note(ws, e.name === "AbortError" ? "Tidying took too long, so I stopped." : `Couldn't tidy: ${e.message}`);
-      this.#setBusy(ws, false);
+      const secs = this.pref("timeout-seconds", 45);
+      this.#note(ws, e.name === "AbortError" ? `Tidying took longer than ${secs}s, so I stopped.` : `Couldn't tidy: ${e.message}`);
       return;
+    } finally {
+      this.#setBusy(ws, false);
     }
-    this.#setBusy(ws, false);
 
     // Tabs may have changed while we waited.
     units = this.#units(container);
@@ -839,33 +857,27 @@ class TidyTabs {
 
   async #ask(tabs, existing) {
     const provider = this.pref("provider", "claude");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.pref("timeout-seconds", 45) * 1000);
-    try {
-      if (provider === "ollama") {
-        return await askOllama({
-          endpoint: this.pref("ollama-endpoint", "http://localhost:11434"),
-          model: this.pref("ollama-model", "llama3.1"),
-          tabs, existing, signal: controller.signal,
-        });
-      }
-      if (provider === "site") {
-        return { groups: groupBySite(tabs).map((g) => ({ name: g.name, tabs: g.ids })) };
-      }
-      let apiKey = this.pref("claude-api-key", "");
-      if (!apiKey) apiKey = this.promptForKey();
+    if (provider === "site") {
+      return { groups: groupBySite(tabs).map((g) => ({ name: g.name, tabs: g.ids })) };
+    }
+    let apiKey = "";
+    if (provider !== "ollama") {
+      // Ask for the key before the clock starts, so typing it doesn't count.
+      apiKey = this.pref("claude-api-key", "") || this.promptForKey();
       if (!apiKey) {
         // No key: fall back to grouping by website so the broom still does something.
         return { groups: groupBySite(tabs).map((g) => ({ name: g.name, tabs: g.ids })) };
       }
-      return await askClaude({
-        apiKey,
-        model: this.pref("claude-model", "claude-haiku-5-5"),
-        tabs, existing, signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timer);
     }
+    const request = (signal) =>
+      provider === "ollama"
+        ? askOllama({
+            endpoint: this.pref("ollama-endpoint", "http://localhost:11434"),
+            model: this.pref("ollama-model", "llama3.1"),
+            tabs, existing, signal,
+          })
+        : askClaude({ apiKey, model: this.pref("claude-model", "claude-haiku-5-5"), tabs, existing, signal });
+    return withTimeout(request, this.pref("timeout-seconds", 45) * 1000);
   }
 
   promptForKey() {
