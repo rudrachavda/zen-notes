@@ -1,0 +1,48 @@
+[
+  {
+    "property": "zen.tidy-tabs.provider",
+    "label": "Who sorts the tabs",
+    "type": "dropdown",
+    "value": "string",
+    "defaultValue": "claude",
+    "options": [
+      { "value": "claude", "label": "Claude (API key)" },
+      { "value": "ollama", "label": "Ollama (runs on this Mac)" },
+      { "value": "site", "label": "No AI: group by website" }
+    ]
+  },
+  {
+    "property": "zen.tidy-tabs.claude-api-key",
+    "label": "Claude API key",
+    "type": "string",
+    "defaultValue": "",
+    "conditions": [{ "if": { "property": "zen.tidy-tabs.provider", "value": "claude" } }]
+  },
+  {
+    "property": "zen.tidy-tabs.claude-model",
+    "label": "Claude model",
+    "type": "string",
+    "defaultValue": "claude-haiku-5-5",
+    "conditions": [{ "if": { "property": "zen.tidy-tabs.provider", "value": "claude" } }]
+  },
+  {
+    "property": "zen.tidy-tabs.ollama-endpoint",
+    "label": "Ollama address",
+    "type": "string",
+    "defaultValue": "http://localhost:11434",
+    "conditions": [{ "if": { "property": "zen.tidy-tabs.provider", "value": "ollama" } }]
+  },
+  {
+    "property": "zen.tidy-tabs.ollama-model",
+    "label": "Ollama model",
+    "type": "string",
+    "defaultValue": "llama3.1",
+    "conditions": [{ "if": { "property": "zen.tidy-tabs.provider", "value": "ollama" } }]
+  },
+  {
+    "property": "zen.tidy-tabs.shortcut",
+    "label": "Tidy with ⌘⌥T",
+    "type": "checkbox",
+    "defaultValue": true
+  }
+]
