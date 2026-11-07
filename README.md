@@ -101,6 +101,13 @@ The tab's icon is a plain note unless `zen-mod/notes-sprite.svg` exists. That
 file is Arc's animated Notes icon turned into a 36-frame sprite like Zen's
 other Library icons; it's Arc's artwork, so it isn't in this repo.
 
+## Tidy Tabs (optional)
+
+`tidy-tabs/` adds Arc-style Tidy Tabs to Zen: a broom on the divider that sorts
+your unpinned tabs under named headers using Claude. It uses the same loader.
+See [tidy-tabs/README.md](tidy-tabs/README.md), and install with
+`./tidy-tabs/install.sh`.
+
 ## Develop
 
 ```bash
