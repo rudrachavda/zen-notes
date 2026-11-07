@@ -400,19 +400,22 @@ function css(broomUrl) {
     margin-inline-start: 2px;
     opacity: 0;
     cursor: default;
-    transition: opacity 0.12s;
-    color: inherit;
-    & img {
+    transition: opacity 0.12s, background-color 0.12s;
+    color: var(--zen-tidy-icon-color, var(--toolbox-textcolor, light-dark(#1a1a1a, #ffffff)));
+    & .zen-tidy-btn-icon {
       display: block;
       width: 14px;
       height: 14px;
-      -moz-context-properties: fill, fill-opacity;
-      fill: currentColor;
+      background-color: currentColor;
+      mask: var(--zen-tidy-btn-icon) center / 14px 14px no-repeat;
       pointer-events: none;
     }
-    &:hover { background: light-dark(rgba(0,0,0,.07), rgba(255,255,255,.1)); color: light-dark(rgba(0,0,0,.75), rgba(255,255,255,.85)); }
+    &:hover {
+      opacity: 1 !important;
+      background-color: color-mix(in srgb, currentColor 14%, transparent);
+    }
   }
-  &:hover .zen-tidy-btn { opacity: 1; }
+  &:hover .zen-tidy-btn { opacity: 0.85; }
 }
 .zen-tidy-note {
   margin: 4px 8px 6px;
@@ -737,6 +740,7 @@ class TidyTabs {
         if (ready) pinned.setAttribute("zen-tidy-ready", "true");
         else pinned.removeAttribute("zen-tidy-ready");
       }
+      this.#syncSpaceColor(ws);
     }
 
     // Forget groups whose tabs are all gone.
@@ -788,6 +792,23 @@ class TidyTabs {
     }
   }
 
+  #syncSpaceColor(ws) {
+    try {
+      const wsObj =
+        window.gZenWorkspaces?.getWorkspaceFromId?.(ws.id) ??
+        window.gZenWorkspaces?.getActiveWorkspaceFromCache?.();
+      const theme = wsObj && window.gZenThemePicker?.getGradientForWorkspace?.(wsObj);
+      const c = theme?.toolbarColor;
+      if (Array.isArray(c) && c.length >= 3) {
+        ws.style.setProperty("--zen-tidy-icon-color", `rgb(${c[0]}, ${c[1]}, ${c[2]})`);
+      } else {
+        ws.style.removeProperty("--zen-tidy-icon-color");
+      }
+    } catch {
+      ws.style.removeProperty("--zen-tidy-icon-color");
+    }
+  }
+
   #makeHeader(gid) {
     const h = document.createElementNS(XHTML, "div");
     h.className = "zen-tidy-header";
@@ -800,10 +821,10 @@ class TidyTabs {
       const b = document.createElementNS(XHTML, "button");
       b.className = "zen-tidy-btn";
       b.title = title;
-      const img = document.createElementNS(XHTML, "img");
-      img.src = `chrome://browser/skin/zen-icons/${icon}.svg`;
-      img.alt = "";
-      b.append(img);
+      const span = document.createElementNS(XHTML, "span");
+      span.className = "zen-tidy-btn-icon";
+      span.style.setProperty("--zen-tidy-btn-icon", `url("chrome://browser/skin/zen-icons/${icon}.svg")`);
+      b.append(span);
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         fn();
