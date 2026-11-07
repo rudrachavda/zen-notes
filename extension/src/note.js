@@ -4,7 +4,7 @@ import "@fontsource/nunito/600.css";
 import "@fontsource/nunito/800.css";
 import "./note.css";
 
-import { Editor, Extension } from "@tiptap/core";
+import { Editor, Extension, InputRule } from "@tiptap/core";
 import { NodeSelection, Plugin, TextSelection } from "@tiptap/pm/state";
 import { GapCursor } from "@tiptap/pm/gapcursor";
 import StarterKit from "@tiptap/starter-kit";
@@ -309,7 +309,33 @@ const editor = new Editor({
         return { ...this.parent?.(), tight: { default: true, rendered: false } };
       },
     }),
-    TaskItem.configure({ nested: true }),
+    // Typing "- [ ] " (or "- [x] ") makes a checklist item. "- " has already
+    // turned the line into a bullet by then, so convert that bullet item.
+    TaskItem.extend({
+      addInputRules() {
+        return [
+          new InputRule({
+            find: /^\[([ xX]?)\]\s$/,
+            handler: ({ state, range, match, chain }) => {
+              const $from = state.doc.resolve(range.from);
+              if ($from.depth < 2) return null;
+              const item = $from.node(-1);
+              const list = $from.node(-2);
+              if (item.type.name !== "listItem" || list.type.name !== "bulletList") return null;
+              // Only top-level bullets; nested ones fall back to the stock rule.
+              if ($from.depth > 2 && $from.node(-3).type.name === "listItem") return null;
+              chain()
+                .deleteRange(range)
+                .liftListItem("listItem")
+                .toggleTaskList()
+                .updateAttributes("taskItem", { checked: match[1].toLowerCase() === "x" })
+                .run();
+            },
+          }),
+          ...(this.parent?.() || []),
+        ];
+      },
+    }).configure({ nested: true }),
     Placeholder.configure({ placeholder: "Start writing…" }),
     Markdown.configure({ html: true, tightLists: true, linkify: true, transformPastedText: true }),
   ],
